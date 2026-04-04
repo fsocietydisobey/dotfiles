@@ -18,14 +18,18 @@ Install these first:
 
 ```bash
 # Arch
-sudo pacman -S neovim kitty git nodejs npm python
+sudo pacman -S neovim kitty git nodejs npm
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Ubuntu/Debian
-sudo apt install neovim kitty git nodejs npm python3
+sudo apt install neovim kitty git nodejs npm
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # macOS
-brew install neovim kitty git node python
+brew install neovim kitty git node uv
 ```
+
+Python is managed by `uv`, not system packages. `uv` handles Python installation, virtual environments, and dependencies.
 
 ### 2. Clone & Install
 
