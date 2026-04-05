@@ -1,51 +1,44 @@
 return {
-  "datsfilipe/vesper.nvim",
+  "rebelot/kanagawa.nvim",
   lazy = false,
-  priority = 1000, -- Load this first
+  priority = 1000,
   config = function()
-    require("vesper").setup({
+    require("kanagawa").setup({
       transparent = true,
-      italics = {
-        comments = true,
-        keywords = true,
-        functions = true,
-        strings = false,
-        variables = true,
+      theme = "dragon", -- dark, warm variant
+      colors = {
+        theme = {
+          all = {
+            ui = {
+              bg_gutter = "NONE",
+            },
+          },
+        },
       },
-      variant = "main", -- The deep charcoal variant
-    })
-
-    -- Load the colorscheme
-    vim.cmd.colorscheme("vesper")
-
-    -- FORCE TRANSPARENCY (The Fix for Neo-tree & Avante)
-    -- This autocmd ensures that every time the theme loads, we strip the bg
-    vim.api.nvim_create_autocmd("ColorScheme", {
-      pattern = "vesper",
-      callback = function()
-        local hl_groups = {
-          "Normal", "NormalNC", "SignColumn", "StatusLine", "StatusLineNC",
-          "WinSeparator", "VertSplit", "EndOfBuffer",
-          "NeoTreeNormal", "NeoTreeNormalNC", "NeoTreeWinSeparator", "NeoTreeEndOfBuffer",
-          "NvimTreeNormal", "NvimTreeNormalNC",
-          "TabLine", "TabLineFill", "TabLineSel",
-          "Pmenu", "FloatBorder", "NormalFloat",
-          "AvanteNormal", "AvanteInput", -- Transparency for your AI sidebar
+      overrides = function(colors)
+        return {
+          -- Make all floating/sidebar backgrounds transparent
+          NormalFloat = { bg = "NONE" },
+          FloatBorder = { bg = "NONE" },
+          NormalDark = { bg = "NONE" },
+          LazyNormal = { bg = "NONE" },
+          NeoTreeNormal = { bg = "NONE" },
+          NeoTreeNormalNC = { bg = "NONE" },
+          NeoTreeEndOfBuffer = { bg = "NONE" },
+          NeoTreeWinSeparator = { bg = "NONE", fg = "#3a3a4a" },
+          -- Lighter window borders (dark but visible)
+          WinSeparator = { fg = "#3a3a4a", bg = "NONE" },
+          VertSplit = { fg = "#3a3a4a", bg = "NONE" },
+          FloatBorder = { bg = "NONE", fg = "#3a3a4a" },
+          AvanteNormal = { bg = "NONE" },
+          AvanteInput = { bg = "NONE" },
+          -- Markdown code blocks
+          RenderMarkdownCode = { bg = colors.theme.ui.bg_p1 },
+          RenderMarkdownCodeInline = { bg = colors.theme.ui.bg_p1 },
         }
-        for _, group in ipairs(hl_groups) do
-          vim.api.nvim_set_hl(0, group, { bg = "NONE", ctermbg = "NONE" })
-        end
-        -- Restore visible backgrounds for markdown code blocks
-        vim.api.nvim_set_hl(0, "RenderMarkdownCode", { bg = "#1e1e2e" })
-        vim.api.nvim_set_hl(0, "RenderMarkdownCodeInline", { bg = "#1e1e2e" })
       end,
     })
-    
-    -- Give markdown code blocks a visible background despite transparency
-    vim.api.nvim_set_hl(0, "RenderMarkdownCode", { bg = "#1e1e2e" })
-    vim.api.nvim_set_hl(0, "RenderMarkdownCodeInline", { bg = "#1e1e2e" })
 
-    -- Trigger the autocmd immediately for the current session
-    vim.cmd("doautocmd ColorScheme vesper")
+    vim.cmd.colorscheme("kanagawa")
   end,
 }
