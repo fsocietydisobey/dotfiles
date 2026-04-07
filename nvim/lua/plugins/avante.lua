@@ -19,7 +19,7 @@ return {
     -- This is the "Cursor" magic: it builds a map of your repo
     repo_map = {
       enabled = true,
-      depth = 2, -- How deep into your folders it should "look"
+      depth = 4, -- Deeper = better awareness of nested feature modules (jeevy_portal has deeply nested domains)
     },
     behaviour = {
       auto_suggestions = false, -- Set to true if you want Copilot-style ghost text
