@@ -41,7 +41,17 @@ return {
           },
           explorer = {
             hidden = true,
-            ignored = false,
+            ignored = true, -- show git-ignored files (.env, .venv, etc.)
+            -- Single-click to expand folders / open files.
+            -- <LeftRelease> fires after vim has moved the cursor to the
+            -- clicked row, so confirm acts on the right item.
+            win = {
+              list = {
+                keys = {
+                  ["<LeftRelease>"] = "confirm",
+                },
+              },
+            },
           },
         },
       },

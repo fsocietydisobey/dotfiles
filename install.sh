@@ -23,5 +23,11 @@ link() {
 link "nvim"  "$HOME/.config/nvim"
 link "kitty" "$HOME/.config/kitty"
 
+# Claude Code — symlink individual files/dirs, not the whole .claude/
+# (Claude Code manages its own cache, sessions, etc. in ~/.claude/)
+link "claude/CLAUDE.md"  "$HOME/.claude/CLAUDE.md"
+link "claude/rules"      "$HOME/.claude/rules"
+link "claude/commands"   "$HOME/.claude/commands"
+
 echo ""
 echo "Done. Open a new terminal and run 'nvim' to install plugins."
