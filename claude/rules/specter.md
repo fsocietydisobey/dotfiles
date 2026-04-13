@@ -23,26 +23,79 @@ Specter is an MCP server that connects to a Chromium browser via CDP and gives y
 - Tracing data flow — follow the data from API response → Redux state → component props → rendered DOM
 - Interaction testing — click through a flow, fill forms, verify behavior without the user doing it manually
 
+## When to use Specter
+
+- Frontend bugs where the error is in the browser, not the code (wrong props, stale state, failed API calls)
+- Visual debugging — "does this look right?" → take a screenshot and check
+- Tracing data flow — follow the data from API response → Redux state → component props → rendered DOM
+- Interaction testing — click through a flow, fill forms, verify behavior without the user doing it manually
+
+## Effective patterns
+
+### Start with `debug_snapshot` instead of 5 separate calls
+`debug_snapshot` returns screenshot + page info + console errors + network errors + page structure in one call. Use this as the starting point for any debugging session instead of calling each tool separately.
+
+### Use `get_page_structure` before interacting
+Before clicking anything, call `get_page_structure` to understand the layout — what sections exist, which tab is selected, what's expanded/collapsed. This prevents clicking the wrong thing because you didn't know the context.
+
+### Hover before looking for action buttons
+Many UI elements (table row actions, edit icons, dropdown triggers) only appear on hover. If `get_interactive_elements` doesn't show what you expect, `hover_element` on the parent container first, then call `get_interactive_elements` again.
+
+### Use `navigate_to` for known routes
+Don't click through 3 links to get to a page when you know the URL. `navigate_to("http://localhost:3000/shop/quote/25/description")` is faster and more reliable.
+
+### Wait for network after actions
+After `click_element`, `navigate_to`, or `reload_page`, call `wait_for_network_idle()` before taking a screenshot. Otherwise you'll capture loading spinners instead of the final state.
+
+### Use `press_key` for form completion
+After `fill_input`, use `press_key("Enter")` to submit. Use `press_key("Escape")` to close modals/dialogs. Use `press_key("Tab")` to move between form fields.
+
+### Keyboard for dropdowns
+Custom dropdowns (not native `<select>`) often need: `click_element` to open → `press_key("ArrowDown")` to navigate → `press_key("Enter")` to select.
+
 ## Quick reference
 
 ```
+# Compound
+debug_snapshot()
+
+# Page understanding
+get_page_structure()
+get_page_info()
+get_dom_html(selector="body", outer=False)
 take_screenshot(full_page=False, selector=None)
+
+# Console & network
 get_console_logs(level=None, since=None, limit=50)
 get_errors(since=None, limit=50)
 get_network_errors(since=None, limit=50, url_filter=None)
 get_network_log(since=None, limit=50, url_filter=None)
-evaluate_js(expression)
-get_page_info()
-get_dom_html(selector="body", outer=False)
+
+# React & Redux
 check_react()
 get_component_tree(max_depth=15, max_children=50)
 get_component_at(selector)
 get_redux_state(path="")
+get_redux_actions()
+
+# Interaction
 get_interactive_elements(role=None)
+hover_element(selector)
 click_element(selector)
 fill_input(selector, value)
 select_option(selector, option_value)
+press_key(key, modifiers=None, selector=None)
+
+# Navigation & waiting
+navigate_to(url)
+reload_page(ignore_cache=False)
 wait_for_element(selector, timeout_ms=10000)
+wait_for_network_idle(idle_ms=500, timeout_ms=10000)
+
+# Runtime
+evaluate_js(expression)
+
+# Tab management
 list_tabs()
 connect_to_tab(tab_id)
 clear_logs()
