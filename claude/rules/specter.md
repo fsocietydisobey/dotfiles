@@ -6,6 +6,7 @@ Specter is an MCP server that connects to a Chromium browser via CDP and gives y
 
 ## Debugging workflow
 
+0. **Connect to the right tab:** Call `list_tabs()` to see all open tabs. Pick the app tab — NOT `pipeline-tracer.html` (that's a separate debugger), NOT `devtools://` URLs. Call `connect_to_tab(id)` to switch. Do this on first use or when you're unsure which tab you're on.
 1. **See:** `take_screenshot` — capture what the user sees. Read the PNG to analyze the visual state.
 2. **Check errors:** `get_console_logs(level="error")` + `get_errors` — find JS exceptions and console errors with stack traces.
 3. **Check network:** `get_network_errors` — find failed API calls (4xx/5xx).
@@ -43,5 +44,6 @@ fill_input(selector, value)
 select_option(selector, option_value)
 wait_for_element(selector, timeout_ms=10000)
 list_tabs()
+connect_to_tab(tab_id)
 clear_logs()
 ```
