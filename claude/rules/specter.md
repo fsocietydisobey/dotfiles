@@ -53,6 +53,30 @@ After `fill_input`, use `press_key("Enter")` to submit. Use `press_key("Escape")
 ### Keyboard for dropdowns
 Custom dropdowns (not native `<select>`) often need: `click_element` to open → `press_key("ArrowDown")` to navigate → `press_key("Enter")` to select.
 
+### Client-side navigation
+Use `router_navigate("/shop/quote/6/description")` instead of `navigate_to` for in-app routing. `navigate_to` does a hard reload that resets app state. `router_navigate` uses the app's own router (finds and clicks matching `<a>` tags, or assigns `location.href`). Always call `wait_for_network_idle()` after either.
+
+## Debugging anti-patterns — DON'T DO THESE
+
+### Don't guess at data shapes — inspect them
+When debugging data issues (wrong props, missing fields, snake_case vs camelCase), **never guess**. Use `evaluate_js` to inject a console.log and inspect the actual runtime data:
+```
+evaluate_js("console.log('PROPS:', JSON.stringify(document.querySelector('.my-component').__reactFiber$?.memoizedProps, null, 2))")
+```
+Then call `get_console_logs` to read the output. 10 seconds of inspection saves 10 minutes of wrong guesses.
+
+### Don't take screenshots to verify data — check the data directly
+If the question is "does this component have the right data?", don't take a screenshot and try to read pixel values. Use `evaluate_js` or `get_component_at` to check the actual props and state.
+
+### Don't skip console logs when debugging
+Before fixing anything, ALWAYS check `get_console_logs(level="error")` and `get_errors`. The answer is often already in the console. A stack trace pointing to the exact line is worth more than any amount of code-reading.
+
+### Don't guess at API response shapes — check the network
+When debugging "the data is wrong after an API call", use `get_network_log(url_filter="/api/v1/...")` to see the actual request/response. If the status is 200 but the data is wrong, the bug is in the response transformation, not the component.
+
+### Inject diagnostic logs instead of modifying code
+When you need to understand what's happening inside a function at runtime, use `evaluate_js` to inject temporary `console.log` statements via monkey-patching, NOT by editing the source file. Read them back with `get_console_logs`. This is faster and doesn't require a reload.
+
 ## Quick reference
 
 ```
