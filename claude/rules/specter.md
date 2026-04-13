@@ -41,8 +41,8 @@ Before clicking anything, call `get_page_structure` to understand the layout —
 ### Hover before looking for action buttons
 Many UI elements (table row actions, edit icons, dropdown triggers) only appear on hover. If `get_interactive_elements` doesn't show what you expect, `hover_element` on the parent container first, then call `get_interactive_elements` again.
 
-### Use `navigate_to` for known routes
-Don't click through 3 links to get to a page when you know the URL. `navigate_to("http://localhost:3000/shop/quote/25/description")` is faster and more reliable.
+### Navigate by clicking, not by URL
+To navigate the app, use `get_interactive_elements` to find links/buttons, then `click_element` to click them — the same way a user would. Do NOT try to manipulate URLs programmatically. The app's router controls navigation and will strip/rewrite URLs set externally.
 
 ### Wait for network after actions
 After `click_element`, `navigate_to`, or `reload_page`, call `wait_for_network_idle()` before taking a screenshot. Otherwise you'll capture loading spinners instead of the final state.
@@ -53,8 +53,8 @@ After `fill_input`, use `press_key("Enter")` to submit. Use `press_key("Escape")
 ### Keyboard for dropdowns
 Custom dropdowns (not native `<select>`) often need: `click_element` to open → `press_key("ArrowDown")` to navigate → `press_key("Enter")` to select.
 
-### Client-side navigation
-Use `router_navigate("/shop/quote/6/description")` instead of `navigate_to` for in-app routing. `navigate_to` does a hard reload that resets app state. `router_navigate` uses the app's own router (finds and clicks matching `<a>` tags, or assigns `location.href`). Always call `wait_for_network_idle()` after either.
+### Navigation is clicking, not URL manipulation
+The app's router controls the URL. Don't try to set it programmatically. To navigate: `get_interactive_elements(role="link")` to find links, then `click_element(selector)` to click one. Wait with `wait_for_network_idle()` after.
 
 ## Debugging anti-patterns — DON'T DO THESE
 
@@ -110,8 +110,7 @@ fill_input(selector, value)
 select_option(selector, option_value)
 press_key(key, modifiers=None, selector=None)
 
-# Navigation & waiting
-navigate_to(url)
+# Navigation & waiting (navigate by clicking links, not by URL)
 reload_page(ignore_cache=False)
 wait_for_element(selector, timeout_ms=10000)
 wait_for_network_idle(idle_ms=500, timeout_ms=10000)
