@@ -16,9 +16,13 @@ return {
     lazy = false,
     priority = 1000,
     config = function()
+      -- Solid nvim background (independent of kitty's color).
+      -- Kitty terminals show their space gray; nvim keeps this dark color.
+      local nvim_bg = "#181818"
+
       require("catppuccin").setup({
         flavour = "mocha",
-        transparent_background = true,
+        transparent_background = false,
         term_colors = true,
         no_italic = false,
         styles = {
@@ -53,22 +57,26 @@ return {
         },
         custom_highlights = function(colors)
           return {
-            -- Keep all floating/sidebar backgrounds transparent
-            NormalFloat = { bg = "NONE" },
-            FloatBorder = { bg = "NONE", fg = "#3a3a4a" },
-            NeoTreeNormal = { bg = "NONE" },
-            NeoTreeNormalNC = { bg = "NONE" },
-            NeoTreeEndOfBuffer = { bg = "NONE" },
-            NeoTreeWinSeparator = { bg = "NONE", fg = "#3a3a4a" },
-            -- Lighter window borders
-            WinSeparator = { fg = "#3a3a4a", bg = "NONE" },
-            VertSplit = { fg = "#3a3a4a", bg = "NONE" },
+            -- Force the dark nvim background everywhere the editor renders,
+            -- so kitty's space gray shows only in actual terminal panes.
+            Normal = { bg = nvim_bg },
+            NormalNC = { bg = nvim_bg },
+            NormalFloat = { bg = nvim_bg },
+            FloatBorder = { bg = nvim_bg, fg = "#3a3a4a" },
+            NeoTreeNormal = { bg = nvim_bg },
+            NeoTreeNormalNC = { bg = nvim_bg },
+            NeoTreeEndOfBuffer = { bg = nvim_bg },
+            NeoTreeWinSeparator = { bg = nvim_bg, fg = "#3a3a4a" },
+            -- Window borders
+            WinSeparator = { fg = "#3a3a4a", bg = nvim_bg },
+            VertSplit = { fg = "#3a3a4a", bg = nvim_bg },
             -- Avante
-            AvanteNormal = { bg = "NONE" },
-            AvanteInput = { bg = "NONE" },
+            AvanteNormal = { bg = nvim_bg },
+            AvanteInput = { bg = nvim_bg },
             -- Gutter
-            SignColumn = { bg = "NONE" },
-            LineNr = { bg = "NONE" },
+            SignColumn = { bg = nvim_bg },
+            LineNr = { bg = nvim_bg },
+            EndOfBuffer = { bg = nvim_bg },
           }
         end,
       })
