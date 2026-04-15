@@ -65,6 +65,15 @@ evaluate_js("console.log('PROPS:', JSON.stringify(document.querySelector('.my-co
 ```
 Then call `get_console_logs` to read the output. 10 seconds of inspection saves 10 minutes of wrong guesses.
 
+### For Redux state, use `get_redux_state` NOT `evaluate_js`
+`get_redux_state(path)` already handles multi-renderer fiber walking, store caching, and safe serialization. Don't manually walk `__REACT_DEVTOOLS_GLOBAL_HOOK__` — it's the #1 wasted-call pattern. Examples:
+- `get_redux_state()` → summary of top-level keys
+- `get_redux_state("auth.session")` → drill into a path
+- `get_redux_state("api.queries")` → RTK Query cache
+
+### For duplicate DOM matches, use `get_elements_grouped_by_component`
+When `document.querySelectorAll` returns more elements than expected (same data rendered in multiple views), don't try to filter the flat list. Call `get_elements_grouped_by_component(selector)` to see results grouped by the owning React component — tells you which view each element came from.
+
 ### Don't take screenshots to verify data — check the data directly
 If the question is "does this component have the right data?", don't take a screenshot and try to read pixel values. Use `evaluate_js` or `get_component_at` to check the actual props and state.
 
@@ -99,6 +108,7 @@ get_network_log(since=None, limit=50, url_filter=None)
 check_react()
 get_component_tree(max_depth=15, max_children=50)
 get_component_at(selector)
+get_elements_grouped_by_component(selector)
 get_redux_state(path="")
 get_redux_actions()
 
