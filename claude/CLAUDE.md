@@ -1,30 +1,41 @@
 # Global Claude Code Instructions
 
+## Layout
+
+Rules live in `~/.claude/rules/` (symlinked to `~/dotfiles/claude/rules/`) and are organized into three groups:
+
+- **`rules/personal/`** — personal working style, not synced to Cursor
+- **`rules/engineering/`** — team engineering standards, synced to Cursor as `.mdc` via `tool sync`
+- **`rules/mcp/`** — usage guides for the MCP tooling suite (transitional; will migrate into server `instructions=` — see WORKSTATION_TOOLING.md Phase 7)
+
 ## MCP tooling suite
 
-Four MCP servers are registered globally. Usage instructions for each are in `~/.claude/rules/`:
+Four MCP servers available:
 
 | Server | Rule file | Purpose |
 |---|---|---|
-| **Séance** | `rules/seance.md` | Semantic code search via vector embeddings |
-| **Specter** | `rules/specter.md` | Browser debugging via CDP (console, screenshots, React, interaction) |
-| **Scarlet** | `rules/scarlet.md` | Codebase cartography (feature CLAUDE.md, barrels, dep graphs) |
+| **Séance** | `rules/mcp/seance.md` | Semantic code search via vector embeddings |
+| **Specter** | `rules/mcp/specter.md` | Browser debugging via CDP (console, screenshots, React, interaction) |
+| **Scarlet** | `rules/mcp/scarlet.md` | Codebase cartography (feature CLAUDE.md, barrels, dep graphs) |
 | **Serena** | *(jeevy_portal only)* | LSP-powered symbol navigation |
 
-## Engineering rules
-
-General engineering rules are in `~/.claude/rules/`:
+## Personal rules
 
 | Rule file | Scope |
 |---|---|
-| `approach.md` | Working style, research-first, challenge bad ideas |
-| `conventions.md` | Naming, code style, folder structure |
-| `workflow.md` | Rule sync, formatting, research workflow |
-| `error-handling.md` | Error patterns, error envelope format |
-| `testing.md` | Coverage, determinism, what to test |
-| `security.md` | Secrets, input validation, OWASP |
-| `database.md` | Migrations, queries, naming, indexing |
-| `performance.md` | Frontend, backend, API, database |
-| `api-design.md` | REST conventions, versioning, pagination |
-| `dependencies.md` | Evaluation, pinning, auditing |
-| `debugging.md` | Process, anti-patterns, tools |
+| `rules/personal/approach.md` | Working style, research-first, challenge bad ideas |
+| `rules/personal/workflow.md` | Rule sync, formatting, research workflow |
+
+## Engineering rules
+
+| Rule file | Scope |
+|---|---|
+| `rules/engineering/conventions.md` | Naming, code style, folder structure |
+| `rules/engineering/error-handling.md` | Error patterns, error envelope format |
+| `rules/engineering/testing.md` | Coverage, determinism, what to test |
+| `rules/engineering/security.md` | Secrets, input validation, OWASP |
+| `rules/engineering/database.md` | Migrations, queries, naming, indexing |
+| `rules/engineering/performance.md` | Frontend, backend, API, database |
+| `rules/engineering/api-design.md` | REST conventions, versioning, pagination |
+| `rules/engineering/dependencies.md` | Evaluation, pinning, auditing |
+| `rules/engineering/debugging.md` | Process, anti-patterns, tools |

@@ -1,0 +1,71 @@
+# Declarative MCP server registry — single source of truth for Claude and Cursor.
+# Consumed by `tool sync` to generate ~/.claude.json mcpServers block and ~/.cursor/mcp.json.
+#
+# Scopes:
+#   global    — registered in ~/.claude.json and ~/.cursor/mcp.json
+#   project   — registered in per-project .mcp.json files only
+#
+# Variable expansion:
+#   {source_path}  — resolved local filesystem path (local: sources only)
+#   {source_url}   — resolved git URL (git+https:, git+ssh: sources only)
+#   {project_dir}  — target project directory (project scope only)
+
+# ── Local MCP servers (maintained at ~/dev/) ──────────────────────────────────
+
+[seance]
+scope = "global"
+source = "local:/home/_3ntropy/dev/seance"
+launcher = "uv"
+args = ["--directory", "{source_path}", "run", "seance", "serve"]
+
+[specter]
+scope = "global"
+source = "local:/home/_3ntropy/dev/specter"
+launcher = "uv"
+args = ["--directory", "{source_path}", "run", "specter", "serve"]
+
+[scarlet]
+scope = "global"
+source = "local:/home/_3ntropy/dev/scarlet"
+launcher = "uv"
+args = ["--directory", "{source_path}", "run", "scarlet", "serve"]
+
+# ── Other locally-developed MCP servers ───────────────────────────────────────
+
+[ai-orchestrator]
+scope = "global"
+source = "local:/home/_3ntropy/dev/ai-orchestrator"
+launcher = "bash"
+args = ["-lc", "uv --directory {source_path} run ai-orchestrator 2>>/tmp/orchestrator.log"]
+
+[ai-orchestrator-graph]
+scope = "global"
+source = "local:/home/_3ntropy/dev/ai-orchestrator"
+launcher = "bash"
+args = ["-lc", "uv --directory {source_path} run ai-orchestrator-graph 2>>/tmp/orchestrator-graph.log"]
+
+# ── Remote MCP servers ────────────────────────────────────────────────────────
+
+[linear]
+scope = "global"
+transport = "stdio"
+launcher = "bash"
+args = ["-lc", "npx -y mcp-remote https://mcp.linear.app/mcp"]
+env = { LINEAR_API_KEY = "${LINEAR_API_KEY}" }
+
+# ── Project-scoped MCP servers ────────────────────────────────────────────────
+
+[serena]
+scope = "project"
+source = "git+https://github.com/oraios/serena"
+launcher = "uvx"
+args = [
+  "--python", "3.13",
+  "--from", "{source_url}",
+  "serena", "start-mcp-server",
+  "--context", "claude-code",
+  "--project", "{project_dir}",
+  "--enable-web-dashboard", "false",
+  "--open-web-dashboard", "false",
+]
+projects = ["/home/_3ntropy/work/jeevy_portal"]
