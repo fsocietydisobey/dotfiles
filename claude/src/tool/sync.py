@@ -145,24 +145,31 @@ def sync_cursor_mcp_json(
 _FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
 
 
-def _derive_description(md_text: str, fallback_name: str) -> str:
-    """Pull a one-liner description from the source .md.
+def _parse_frontmatter(md_text: str) -> tuple[dict, str]:
+    """Parse YAML frontmatter if present. Returns (metadata, body).
 
-    Priority:
-      1. Explicit `description:` in existing frontmatter
-      2. First H1 heading
-      3. Filename (title-cased)
+    If no frontmatter, returns ({}, md_text).
     """
-    m = _FRONTMATTER_RE.match(md_text)
-    if m:
-        for line in m.group(1).splitlines():
-            if line.startswith("description:"):
-                return line.split(":", 1)[1].strip().strip('"').strip("'")
+    import yaml
 
-    for line in md_text.splitlines():
+    m = _FRONTMATTER_RE.match(md_text)
+    if not m:
+        return {}, md_text
+    try:
+        metadata = yaml.safe_load(m.group(1)) or {}
+    except yaml.YAMLError:
+        metadata = {}
+    body = md_text[m.end():]
+    return metadata, body
+
+
+def _derive_description(metadata: dict, body: str, fallback_name: str) -> str:
+    """Pull a one-liner description. Priority: frontmatter → first H1 → filename."""
+    if desc := metadata.get("description"):
+        return str(desc).strip()
+    for line in body.splitlines():
         if line.startswith("# "):
             return line[2:].strip()
-
     return fallback_name.replace("-", " ").replace("_", " ").title()
 
 
@@ -172,26 +179,34 @@ def _rewrite_md_links(content: str) -> str:
     return re.sub(r"\b([a-z0-9_-]+)\.md\b", r"\1.mdc", content)
 
 
-def _strip_existing_frontmatter(md_text: str) -> str:
-    """Remove an existing YAML frontmatter block (if present) before wrapping."""
-    m = _FRONTMATTER_RE.match(md_text)
-    if m:
-        return md_text[m.end() :]
-    return md_text
-
-
 def _render_mdc(md_text: str, name: str) -> str:
-    """Transform an engineering .md into a Cursor .mdc."""
-    description = _derive_description(md_text, name)
-    body = _strip_existing_frontmatter(md_text)
+    """Transform an engineering .md into a Cursor .mdc.
+
+    Translation rules:
+      - Source `paths: [...]` (Claude-style, path-scoped) → Cursor `globs: [...]`
+        + `alwaysApply: false`
+      - No `paths:` → `alwaysApply: true`
+      - `description:` is preserved (or derived)
+    """
+    import yaml
+
+    metadata, body = _parse_frontmatter(md_text)
     body = _rewrite_md_links(body)
-    return (
-        f"---\n"
-        f"description: {description}\n"
-        f"alwaysApply: true\n"
-        f"---\n\n"
-        f"{body.lstrip()}"
-    )
+
+    description = _derive_description(metadata, body, name)
+    paths = metadata.get("paths") or []
+
+    out_frontmatter: dict = {"description": description}
+    if paths:
+        out_frontmatter["globs"] = list(paths)
+        out_frontmatter["alwaysApply"] = False
+    else:
+        out_frontmatter["alwaysApply"] = True
+
+    # yaml.dump with sort_keys=False preserves field order.
+    fm_yaml = yaml.dump(out_frontmatter, sort_keys=False, default_flow_style=False).rstrip()
+
+    return f"---\n{fm_yaml}\n---\n\n{body.lstrip()}"
 
 
 def sync_cursor_rules(

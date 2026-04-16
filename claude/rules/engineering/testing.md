@@ -1,3 +1,15 @@
+---
+description: What to test, coverage philosophy, determinism, structure
+paths:
+  - "**/*.test.{ts,tsx,js,jsx,py}"
+  - "**/*.spec.{ts,tsx,js,jsx,py}"
+  - "**/tests/**"
+  - "**/__tests__/**"
+  - "**/test_*.py"
+  - "**/conftest.py"
+  - "**/spec/**"
+---
+
 # Testing
 
 ## Philosophy

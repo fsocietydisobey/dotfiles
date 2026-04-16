@@ -1,3 +1,18 @@
+---
+description: Evaluation, version pinning, auditing dependencies
+paths:
+  - "**/package.json"
+  - "**/package-lock.json"
+  - "**/pyproject.toml"
+  - "**/uv.lock"
+  - "**/requirements*.txt"
+  - "**/poetry.lock"
+  - "**/Pipfile"
+  - "**/Pipfile.lock"
+  - "**/yarn.lock"
+  - "**/pnpm-lock.yaml"
+---
+
 # Dependencies
 
 ## Before adding a dependency

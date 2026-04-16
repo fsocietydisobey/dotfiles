@@ -1,3 +1,15 @@
+---
+description: Migrations, query patterns, naming, indexing, data integrity
+paths:
+  - "**/migrations/**"
+  - "**/models/**"
+  - "**/*.sql"
+  - "**/supabase/**"
+  - "**/db/**"
+  - "**/repositories/**"
+  - "**/repository/**"
+---
+
 # Database
 
 ## Migrations

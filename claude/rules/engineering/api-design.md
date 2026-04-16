@@ -1,3 +1,13 @@
+---
+description: REST conventions, versioning, response envelopes, pagination
+paths:
+  - "**/api/**"
+  - "**/routes/**"
+  - "**/endpoints/**"
+  - "**/handlers/**"
+  - "**/schemas/**"
+---
+
 # API Design
 
 ## REST conventions
