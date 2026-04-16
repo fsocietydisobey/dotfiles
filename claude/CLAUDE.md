@@ -2,22 +2,21 @@
 
 ## Layout
 
-Rules live in `~/.claude/rules/` (symlinked to `~/dotfiles/claude/rules/`) and are organized into three groups:
+Rules live in `~/.claude/rules/` (symlinked to `~/dotfiles/claude/rules/`) and are organized into two groups:
 
 - **`rules/personal/`** — personal working style, not synced to Cursor
 - **`rules/engineering/`** — team engineering standards, synced to Cursor as `.mdc` via `tool sync`
-- **`rules/mcp/`** — usage guides for the MCP tooling suite (transitional; will migrate into server `instructions=` — see WORKSTATION_TOOLING.md Phase 7)
 
 ## MCP tooling suite
 
-Four MCP servers available:
+Four MCP servers available. Usage guides are embedded in each server's `FastMCP(instructions=...)` — Claude loads them automatically on connect. No rule files to maintain.
 
-| Server | Rule file | Purpose |
-|---|---|---|
-| **Séance** | `rules/mcp/seance.md` | Semantic code search via vector embeddings |
-| **Specter** | `rules/mcp/specter.md` | Browser debugging via CDP (console, screenshots, React, interaction) |
-| **Scarlet** | `rules/mcp/scarlet.md` | Codebase cartography (feature CLAUDE.md, barrels, dep graphs) |
-| **Serena** | *(jeevy_portal only)* | LSP-powered symbol navigation |
+| Server | Purpose |
+|---|---|
+| **Séance** | Semantic code search via vector embeddings |
+| **Specter** | Browser debugging via CDP (console, screenshots, React, interaction) |
+| **Scarlet** | Codebase cartography (feature CLAUDE.md, barrels, dep graphs) |
+| **Serena** | LSP-powered symbol navigation (jeevy_portal only) |
 
 ## Personal rules
 
