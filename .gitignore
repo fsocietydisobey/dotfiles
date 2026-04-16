@@ -1,2 +1,16 @@
 nvim/lazy-lock.json
 nvim/.neoconf.json
+
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtualenvs
+.venv/
+venv/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/

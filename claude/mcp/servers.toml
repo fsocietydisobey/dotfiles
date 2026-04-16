@@ -69,3 +69,14 @@ args = [
   "--open-web-dashboard", "false",
 ]
 projects = ["/home/_3ntropy/work/jeevy_portal"]
+
+# ── Séance indexed projects (consumed by `tool mcp reindex`) ──────────────────
+# Maps indexed project name → repository path.
+
+[seance_indexed_projects]
+"jeevy-portal"    = "/home/_3ntropy/work/jeevy_portal"
+"chimera"         = "/home/_3ntropy/dev/chimera"
+"ai-orchestrator" = "/home/_3ntropy/dev/ai-orchestrator"
+"meeting-scribe"  = "/home/_3ntropy/dev/meeting-scribe"
+"seance"          = "/home/_3ntropy/dev/seance"
+"telegram-review" = "/home/_3ntropy/dev/telegram-review"
