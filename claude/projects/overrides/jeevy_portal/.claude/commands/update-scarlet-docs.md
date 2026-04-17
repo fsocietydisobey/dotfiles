@@ -51,9 +51,13 @@ account                  clean               —
 
 End with a count line: `N stale, M missing, K recent-changes, B missing-barrel, C clean`.
 
-### 5. Regenerate what's stale
+### 5. Regenerate what's stale (and create what's missing)
 
-For every feature in `stale_exports`, `missing_doc`, or `recent_changes` — run `mcp__scarlet__build_claude_md` with `write=True`:
+Two distinct write paths — treat them differently:
+
+**Path A — `missing_doc` (CREATE from scratch)**
+
+For every feature with no CLAUDE.md, call `build_claude_md` directly. There's no existing content to preserve.
 
 ```
 mcp__scarlet__build_claude_md(
@@ -63,11 +67,16 @@ mcp__scarlet__build_claude_md(
 )
 ```
 
-**Safety**: `build_claude_md` preserves everything between `<!-- BEGIN MANUAL -->` / `<!-- END MANUAL -->` markers. Auto-derivable sections (Public API, Key files, Consumers, See also) refresh; hand-written sections (Vocabulary, Conventions, Common tasks, Gotchas) survive.
+The generated skeleton has placeholder manual sections the user can fill in later. Safe — no chance of destroying anything because nothing exists.
 
-**Before regenerating any individual feature's CLAUDE.md**: check that the existing file HAS the `BEGIN MANUAL` / `END MANUAL` markers. If it doesn't, *warn the user* before regenerating — manual content may be lost.
+**Path B — `stale_exports` + `recent_changes` (UPDATE existing)**
 
-Run all eligible feature regenerations in parallel.
+For features with an existing CLAUDE.md, do a marker check first. Read the file and look for both `<!-- BEGIN MANUAL -->` and `<!-- END MANUAL -->`.
+
+- **Markers present** → safe to regenerate. Call `build_claude_md(write=True)`. Auto-sections refresh; hand-written content between markers is preserved.
+- **Markers missing** → the existing CLAUDE.md was hand-written (or predates Scarlet). DO NOT regenerate silently. Report this feature to the user with its path and ask whether to proceed. If they say yes, run `build_claude_md(write=True)` and note that manual content may be overwritten.
+
+Run all eligible regenerations (Path A + approved Path B) in parallel.
 
 ### 6. Final report
 
