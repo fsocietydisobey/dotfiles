@@ -16,9 +16,8 @@ return {
     lazy = false,
     priority = 1000,
     config = function()
-      -- Solid nvim background (independent of kitty's color).
-      -- Kitty terminals show their space gray; nvim keeps this dark color.
-      local nvim_bg = "#181818"
+      -- Match kitty's space gray so nvim and terminal panes blend together.
+      local nvim_bg = "#222224"
 
       require("catppuccin").setup({
         flavour = "mocha",

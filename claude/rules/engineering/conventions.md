@@ -49,6 +49,14 @@
 - Keep modules focused. If a file exceeds ~300 lines (backend) or ~250 lines (frontend component), consider splitting.
 - Shared logic goes in shared directories. Feature-specific logic stays in the feature folder.
 
+## Dead code
+
+- **Delete dead code as soon as you confirm it's dead.** Don't leave unused functions, classes, files, imports, or branches in place "just in case." Don't comment them out. Don't add `# TODO: remove`. Just delete.
+- **Verify before deleting.** Grep the entire repo for the symbol name. Check for string-based references (dynamic imports, getattr, registry lookups, config files, frontend selectors). If a function might be called by reflection or by a string, it's not dead — leave it and document the indirect caller.
+- **Never add new code to a dead function.** If you find yourself editing a function with no callers, stop. Either the function is alive (find the real caller and verify your edit fits) or it's dead (delete it instead of building on top of it). Adding code to a dead function compounds the problem — the next reader has more to untangle.
+- **Tests count as callers.** A function only used by tests for an unused feature is still dead — delete the tests with the function. A function used by tests that exercise a live feature is alive.
+- **Git history is the safety net.** If you delete something and later need it, `git log -S 'symbolName'` finds the deletion commit. There's no need to keep dead code around for "version control" purposes — version control already does that.
+
 ## Markdown
 
 - All markdown file names: **UPPERCASE** (e.g. `README.md`, `DESIGN.md`, `TODO.md`).

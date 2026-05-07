@@ -53,3 +53,10 @@ paths:
 - Use `NOT NULL` by default. Only allow nulls when there's a clear semantic meaning for "no value."
 - Use enums or check constraints for columns with a known set of valid values.
 - Timestamps: always store in UTC. Convert to local time at the presentation layer.
+
+## Local DB inspection
+
+- If the project registers a Postgres (or equivalent) MCP query server, prefer its read-only query tool over `bash + curl + jq` plumbing for one-off DB inspection. A single tool call with structured results beats multi-line shell incantations and is auditable in the conversation.
+- Schema introspection (table list, columns, types) is just SQL against `information_schema` — no separate tool needed.
+- Local-DB MCPs can't reach staging/prod by design — their connection is bound at MCP registration time. For staging/prod inspection use the project's deployed dashboard or a service-role + curl path.
+- Project-specific details (which MCP, which database, which connection string) live in the project's onboarding docs or `<repo>/.mcp.json` — not here.

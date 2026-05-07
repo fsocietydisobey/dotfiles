@@ -15,6 +15,8 @@ The content is semantically identical — only the format differs:
 - Backend: Black
 - Both tools should format immediately after making changes.
 
+**When a project has a `pre-commit` hook (or similar) that blocks unformatted commits:** treat that as the project's signal that formatting is non-negotiable. Format the file, re-stage, commit. Don't reach for `--no-verify` to route around it.
+
 ## Research-first workflow
 
 The user's preferred workflow for any non-trivial task:
