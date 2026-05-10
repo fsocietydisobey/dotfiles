@@ -1,40 +1,44 @@
-# /tell <session_or_name> <message> — fire-and-forget notice to another session
+# /tell <target> <message> — send to anything (session OR project)
 
-Sends a one-way FYI / ack to another chimera session. Wraps `mcp__chimera__session_post_notice` with sensible defaults so the user doesn't have to choose between primitives.
+Smart-routed one-way send. The `<target>` can be:
+- A **session name** (e.g. `chimera-builder`) — delivered as a notice to that session's inbox.
+- A **chimera-attached project label** (e.g. `backend`, `chimera`) — delivered as a handoff scoped to that project's cwd, so ANY future session running there sees it.
+
+You don't pick the primitive. The server figures out which one based on the name and routes accordingly.
 
 Use for:
-- "FYI I went with option C"
-- "starting from commit X, watch for Y"
+- "FYI session X, I went with option C"
+- "FYI anyone in jeevy_portal, starting from commit Y watch for Z"
 - "thanks, landed"
 - Any "you don't need to reply" cross-session note
 
-For "I'm leaving a note for whoever opens the next chat in this project" use `/handoff` instead.
-For "I need an answer back" use `/ask`.
+For "I need an answer back in this same turn" use `/ask`.
+To force project-handoff semantics (e.g. if there's both a session AND a project with the same name), use `/handoff <project> <message>` directly.
 
 ## Steps
 
-1. `$ARGUMENTS` should be `<session_or_name> <message>`. Parse:
-   - First whitespace-separated token = target session id or friendly name
+1. `$ARGUMENTS` should be `<target> <message>`. Parse:
+   - First whitespace-separated token = target (session name OR project label)
    - Everything after = message body
-   - If `$ARGUMENTS` doesn't have at least 2 tokens, render: "Usage: `/tell <session_or_name> <message>`. The first token is the target session; the rest is the body. For a note to a future session that doesn't exist yet, use `/handoff` instead."
+   - If parse fails, render usage: `/tell <session_or_project> <message>`. List currently-known targets by calling `mcp__chimera__session_list` (sessions) and `Bash: chimera attached` (projects).
 
-2. Resolve the current session id (your sender id). Use the session_id from this conversation's earlier turns — the SessionStart hook surfaces it as `🆔 chimera session_id: <uuid>`. If unsure, call `mcp__chimera__session_list` and pick the most-recently-active entry matching this conversation's recent file touches.
+2. Resolve your own session id (sender). Use the SessionStart hook value; fall back to `mcp__chimera__session_list` if unknown.
 
-3. Call `mcp__chimera__session_post_notice(target_session_id=<first_token>, text=<rest>, from_session_id=<my_session_id>)`.
-
-4. On success: print `📨 sent to <target>` and the note id from the response.
-
-5. **On failure with "no session named or id'd"**: don't just relay the error. The target doesn't exist. Suggest the right alternative:
+3. Hit the smart-route endpoint via curl:
+   ```bash
+   curl -sS -X POST 'http://127.0.0.1:8740/api/route' \
+     -H 'Content-Type: application/json' \
+     -d '{"target":"<target>","text":"<message>","from_session_id":"<my_id>"}'
    ```
-   ❌ no session named '<target>' yet.
-   If they're just about to spin up: tell them to run
-       mcp__chimera__session_set_name(<their_uuid>, "<target>")
-   on their first turn, then re-run /tell.
-   If you want the message to land for ANY future session in a
-   project's working directory, use /handoff instead.
-   ```
+
+4. Parse the response. The `routed_as` field tells you which primitive was used:
+   - `"notice"` — print `📨 sent as notice to session <target_session_id>`
+   - `"project_handoff"` — print `📦 sent as project handoff scoped to <scope_cwd> — any future session in project '<project_label>' will see it`
+
+5. **On 404** (neither session nor project matched): the response detail will say so. Print it verbatim and suggest the user run `chimera attached` to see project labels or `session_list()` to see active session names.
 
 ## Notes
 
-- Notice notes auto-expire after 3 surfaces if the recipient agent never explicitly acks them — won't loop forever even if ignored.
-- This is the right command 80% of the time. The other 20%: handoffs (target doesn't exist yet), questions (need an answer back), decisions (note for yourself).
+- The smart routing means `/tell backend "..."` works whether `backend` is a running session OR a chimera-attached project (in the user's case: it's a project). Don't ask the user to disambiguate; let the server route.
+- For notices: receiver agent's UserPromptSubmit hook surfaces the note on their next turn. Auto-expires after 3 surfaces if never explicitly acked.
+- For project handoffs: receiver session's SessionStart hook surfaces it on first boot in matching cwd. 7-day TTL by default.

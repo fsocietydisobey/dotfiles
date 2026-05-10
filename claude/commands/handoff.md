@@ -1,6 +1,10 @@
-# /handoff [scope_cwd] <message> — leave a note for any future session in this project
+# /handoff <project_or_path> <message> — leave a note for any future session in a project
 
-Drops a handoff note that auto-surfaces on the SessionStart hook of any future Claude session whose working directory matches `scope_cwd`. Wraps `mcp__chimera__session_post_handoff` with sensible defaults so the user doesn't have to think about which primitive to use.
+Drops a handoff note that auto-surfaces on the SessionStart hook of any future Claude session in the target project. The `<project_or_path>` can be:
+- A **chimera-attached project label** (e.g. `backend`, `chimera`) — the readable, stable name from `chimera attach`. **Preferred.**
+- An absolute filesystem path (e.g. `/home/user/work/foo`) — fallback for projects not attached.
+
+You usually want the label form. Run `chimera attached` if you forget the labels.
 
 Use for:
 - "HANDOFF: shipped X, pickup at Y, watch for Z" — at the end of a working session
@@ -22,21 +26,23 @@ The handoff:
 ## Steps
 
 1. Parse `$ARGUMENTS`:
-   - If first whitespace-separated token is an absolute path (starts with `/`) AND exists or looks pathlike, treat it as `scope_cwd`. Rest of args = message.
-   - Otherwise: `scope_cwd` defaults to the calling agent's current working directory (use Bash `pwd` to resolve, or read from environment if shell tool isn't appropriate). Whole `$ARGUMENTS` = message.
-   - If `$ARGUMENTS` is empty, render:
+   - First whitespace-separated token = `<project_or_path>`. Detect type:
+     - If it starts with `/`, treat as absolute path → pass as `scope_cwd`.
+     - Otherwise, treat as a chimera-attached project label → pass as `scope_project`.
+   - Everything after = message.
+   - If `$ARGUMENTS` is empty or has one token only, render:
      ```
-     Usage: /handoff [scope_cwd] <message>
-     Drops a forward-looking note any future session in scope_cwd will read.
-     If scope_cwd is omitted, uses the current working directory.
+     Usage: /handoff <project_or_path> <message>
      Examples:
-       /handoff "shipped tasks #58-#65; pickup at workspaces/IMPLEMENTATION.md"
-       /handoff /home/user/work/jeevy_portal "next session: run npm install"
+       /handoff backend "next session: run npm install"
+       /handoff chimera "shipped tasks; pickup at workspaces/IMPLEMENTATION.md"
+       /handoff /home/user/work/foo "for any session in /home/user/work/foo"
+     Run `chimera attached` to see project labels.
      ```
 
 2. Resolve your own session id (sender). Use SessionStart hook value; fall back to `mcp__chimera__session_list`.
 
-3. Call `mcp__chimera__session_post_handoff(from_session_id=<my_id>, text=<message>, scope_cwd=<resolved_cwd>)`.
+3. Call `mcp__chimera__session_post_handoff(from_session_id=<my_id>, text=<message>, scope_project=<label>)` if a label was given; otherwise pass `scope_cwd=<path>`.
 
 4. Print confirmation:
    ```
