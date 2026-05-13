@@ -1,5 +1,9 @@
 # Code Conventions
 
+## TL;DR
+
+Match existing patterns first. camelCase frontend (except React PascalCase, module CONSTANTS); PEP 8 + Black backend. Names must reflect what they do — no `data`, `result`, `temp`. Delete dead code the moment it's confirmed dead.
+
 ## General principles
 
 - Code should be self-documenting through clear naming, but comments explain the _why_ behind non-obvious decisions.

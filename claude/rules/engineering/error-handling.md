@@ -1,5 +1,9 @@
 # Error Handling
 
+## TL;DR
+
+Never swallow errors silently — log, re-throw, or handle explicitly. Fail fast and loud. Include context (path, ID, operation) in messages. Backend uses `{error: {code, message, details}}` envelope; map exceptions → HTTP status explicitly.
+
 ## Philosophy
 
 - **Never swallow errors silently.** Every caught error must be logged, re-thrown, or handled with an explicit user-facing action. `catch (e) {}` is never acceptable.

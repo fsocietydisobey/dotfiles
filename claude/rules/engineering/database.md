@@ -12,6 +12,10 @@ paths:
 
 # Database
 
+## TL;DR
+
+Never edit existing migrations — create a new one. Parameterized queries only. snake_case tables/columns. Index WHERE/JOIN/ORDER BY columns. Foreign-key constraints + NOT NULL by default. Row-level security for multi-tenant.
+
 ## Migrations
 
 - **Never edit existing migrations.** They may have already run in other environments. Create a new migration for every schema change.

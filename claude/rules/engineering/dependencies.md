@@ -15,6 +15,10 @@ paths:
 
 # Dependencies
 
+## TL;DR
+
+Check if existing packages cover the need before adding. Evaluate maintenance + downloads + license + bundle size. Pin exact versions; commit lockfiles. Run `npm audit` / `pip audit` regularly. Clean up config + types when removing a dep.
+
 ## Before adding a dependency
 
 - **Check if existing packages already cover the need.** Don't add `lodash` for one utility function you can write in 5 lines.

@@ -12,6 +12,10 @@ paths:
 
 # Testing
 
+## TL;DR
+
+Tests catch regressions and document behavior. Test behavior not implementation. Always cover the unhappy path. Deterministic only — no flaky tests. High coverage on critical paths; don't chase 100%.
+
 ## Philosophy
 
 - Tests exist to **catch regressions and document behavior.** If a test doesn't fail when something breaks, it's not testing anything useful.

@@ -1,5 +1,9 @@
 # Performance
 
+## TL;DR
+
+Measure first, optimize second. No blocking I/O in async handlers. Lazy-load on frontend; watch for N+1 queries. Index columns used in WHERE/JOIN/ORDER BY. Paginate all list endpoints. Cache deliberately — stale cache is worse than no cache.
+
 ## Frontend
 
 - **Lazy load** routes and heavy components. Don't bundle everything into the initial payload.

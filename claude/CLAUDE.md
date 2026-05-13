@@ -1,11 +1,17 @@
 # Global Claude Code Instructions
 
+## Rules digest (read this first)
+
+**`~/.claude/rules/DIGEST.md` is the load-bearing-principles version of every rule below.** When context is tight or the agent is mid-tool-call and can't re-load the full rule files, the digest is the fallback. It's auto-generated from each rule's `## TL;DR` section by `claude/rules/.generate-digest.sh`. If a principle in the digest applies, drill into the full rule for nuance.
+
 ## Layout
 
 Rules live in `~/.claude/rules/` (symlinked to `~/dotfiles/claude/rules/`) and are organized into two groups:
 
 - **`rules/personal/`** — personal working style, not synced to Cursor
 - **`rules/engineering/`** — team engineering standards, synced to Cursor as `.mdc` via `tool sync`
+
+Every rule file starts with a `## TL;DR` section. The digest concatenates them. See `personal/workflow.md` for the format convention.
 
 ## MCP tooling suite
 

@@ -1,5 +1,9 @@
 # Debugging
 
+## TL;DR
+
+Reproduce first — without a reliable repro you can't verify the fix. Read the actual error, trace data flow, isolate the layer, form a hypothesis, test it, fix the root cause (not the symptom), add a test. Don't shotgun-debug.
+
 ## Process
 
 1. **Reproduce first.** If you can't reproduce the bug, you can't verify the fix. Get a reliable reproduction before touching code.

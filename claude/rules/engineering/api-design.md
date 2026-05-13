@@ -10,6 +10,10 @@ paths:
 
 # API Design
 
+## TL;DR
+
+REST with plural-noun resources and proper HTTP verbs. URL-versioned (`/api/v1/`). Consistent `{data, meta}` envelope. Paginate everything (cursor for large/realtime, offset for small/stable). ISO 8601 UTC timestamps; UUIDs in public surface.
+
 ## REST conventions
 
 - Use **plural nouns** for resource endpoints: `/api/v1/projects`, `/api/v1/users`.

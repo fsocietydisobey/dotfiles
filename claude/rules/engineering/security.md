@@ -1,5 +1,9 @@
 # Security
 
+## TL;DR
+
+No secrets in code, ever — env vars or secrets manager only. Validate at every system boundary. Parameterized queries always; never interpolate user input into SQL. Enforce auth at the API layer, not the UI.
+
 ## Secrets management
 
 - **No secrets in code.** Ever. All secrets come from environment variables or a secrets manager.
