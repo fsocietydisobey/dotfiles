@@ -75,7 +75,7 @@ projects = ["/home/_3ntropy/work/jeevy_portal"]
 
 [seance_indexed_projects]
 "jeevy-portal"    = "/home/_3ntropy/work/jeevy_portal"
-"chimera"         = "/home/_3ntropy/dev/chimera"
+"khimaira"         = "/home/_3ntropy/dev/khimaira"
 "ai-orchestrator" = "/home/_3ntropy/dev/ai-orchestrator"
 "meeting-scribe"  = "/home/_3ntropy/dev/meeting-scribe"
 "seance"          = "/home/_3ntropy/dev/seance"

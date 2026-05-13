@@ -1,7 +1,7 @@
-# /chimera-configure — Re-sync this machine to your chimera profile
+# /khimaira-configure — Re-sync this machine to your khimaira profile
 
-Brings the current machine into alignment with the chimera profile
-declared in your dotfiles repo. Same operations as running `chimera
+Brings the current machine into alignment with the khimaira profile
+declared in your dotfiles repo. Same operations as running `khimaira
 sync` from a terminal, but invokable from inside any Claude Code
 session — useful when you've pushed a profile change from another
 machine and want this one to pick it up without dropping out of chat.
@@ -11,8 +11,8 @@ machine and want this one to pick it up without dropping out of chat.
 In order:
 
 1. **Loads the profile.** Resolution order: `--profile` arg →
-   `CHIMERA_PROFILE` env → `~/.config/chimera/profile.yaml` →
-   chimera-shipped default.
+   `KHIMAIRA_PROFILE` env → `~/.config/khimaira/profile.yaml` →
+   khimaira-shipped default.
 2. **`git pull --ff-only`** the dotfiles repo declared in the profile.
 3. **Re-applies symlinks** declared under `dotfiles.symlinks`. Existing
    correct symlinks are left alone (idempotent). Real files at a
@@ -22,7 +22,7 @@ In order:
    servers Claude already lists (use `force=True` to override).
 5. **Re-writes `~/.claude/settings.json` hooks** (only if the profile
    has `install_claude_hooks: true`). Hook command paths are derived
-   from the local chimera install — that's why this step runs
+   from the local khimaira install — that's why this step runs
    per-machine instead of being symlinked.
 
 ## When to use
@@ -30,17 +30,17 @@ In order:
 - After pushing a profile or dotfiles change from another machine.
 - After Claude Code's settings.json drifts (e.g., you opened the
   settings UI and clicked something).
-- After a chimera self-update that changed hook scripts.
+- After a khimaira self-update that changed hook scripts.
 - Periodically as a sanity check — it's idempotent, no-op when clean.
 
 ## Not for
 
-- **First-run setup on a brand-new machine.** Chimera's MCP server
+- **First-run setup on a brand-new machine.** Khimaira's MCP server
   needs to be installed locally for this slash command to exist. Use
   the CLI one-liner instead:
   ```
-  uvx --from git+https://github.com/<you>/chimera chimera bootstrap \
-      --profile https://raw.githubusercontent.com/<you>/dotfiles/main/chimera-profile.yaml
+  uvx --from git+https://github.com/<you>/khimaira khimaira bootstrap \
+      --profile https://raw.githubusercontent.com/<you>/dotfiles/main/khimaira-profile.yaml
   ```
 
 ## Args
@@ -53,6 +53,6 @@ In order:
 
 ## Invokes
 
-`mcp__chimera__chimera_configure(profile, force)` — returns a report
+`mcp__khimaira__khimaira_configure(profile, force)` — returns a report
 with per-operation status (✨ created, 🔄 updated, · unchanged,
 — skipped, ✗ failed) and a summary tail.

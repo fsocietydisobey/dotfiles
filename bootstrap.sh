@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# bootstrap.sh — one-command setup for the chimera portable agent ecosystem.
+# bootstrap.sh — one-command setup for the khimaira portable agent ecosystem.
 #
 # Usage on a fresh machine:
 #
@@ -13,12 +13,12 @@
 # What it does, in order:
 #   - verify prereqs (git, uv, optionally claude + npm)
 #   - clone ~/dotfiles if not already present (curl-piped flow)
-#   - clone ~/dev/chimera if not already present
-#   - uv sync --all-packages inside chimera (load-bearing — keeps
-#     .venv/bin/chimera in place, the workspace-member entry script
+#   - clone ~/dev/khimaira if not already present
+#   - uv sync --all-packages inside khimaira (load-bearing — keeps
+#     .venv/bin/khimaira in place, the workspace-member entry script
 #     that bare `uv sync` drops)
-#   - add the chimera workspace venv to PATH in the right shell rc
-#   - exec `chimera bootstrap` with the profile (does everything else:
+#   - add the khimaira workspace venv to PATH in the right shell rc
+#   - exec `khimaira bootstrap` with the profile (does everything else:
 #     dotfiles symlinks, sibling repo clones, MCP server registration,
 #     hooks setup, supervisor install, SPA build).
 #
@@ -33,7 +33,7 @@ case "$(uname -s 2>/dev/null)" in
     Linux|Darwin) ;;
     MINGW*|CYGWIN*|MSYS*)
         printf "\033[31m[bootstrap] Windows-native isn't supported.\033[0m\n"
-        printf "[bootstrap] Run this inside WSL2 instead: the script + chimera + profile\n"
+        printf "[bootstrap] Run this inside WSL2 instead: the script + khimaira + profile\n"
         printf "[bootstrap] all work transparently in a WSL Ubuntu/Debian environment.\n"
         exit 1
         ;;
@@ -45,9 +45,9 @@ fail() { printf "\033[31m[bootstrap] ✗ %s\033[0m\n" "$*" >&2; exit 1; }
 
 # Configurable defaults — override via env if you want a non-standard layout
 DOTFILES_REPO="${DOTFILES_REPO:-git@github.com:fsocietydisobey/dotfiles.git}"
-CHIMERA_REPO="${CHIMERA_REPO:-git@github.com:fsocietydisobey/chimera.git}"
+KHIMAIRA_REPO="${KHIMAIRA_REPO:-git@github.com:fsocietydisobey/khimaira.git}"
 DOTFILES_DEFAULT="$HOME/dotfiles"
-CHIMERA_DEV_PATH="$HOME/dev/chimera"
+KHIMAIRA_DEV_PATH="$HOME/dev/khimaira"
 
 # ---------------------------------------------------------------------------
 # 1. Prereqs
@@ -71,10 +71,10 @@ if ! command -v claude >/dev/null 2>&1; then
     warn "Install Claude Code first, then re-run this script to register MCPs."
 fi
 
-# npm is needed for the chimera-monitor SPA build. Soft-warn — dashboard
+# npm is needed for the khimaira-monitor SPA build. Soft-warn — dashboard
 # UI won't be available without it but the daemon's JSON API still works.
 command -v npm >/dev/null 2>&1 \
-    || warn "npm not on PATH — chimera monitor dashboard SPA won't build (API still works)."
+    || warn "npm not on PATH — khimaira monitor dashboard SPA won't build (API still works)."
 
 # ---------------------------------------------------------------------------
 # 2. Find or clone dotfiles
@@ -82,7 +82,7 @@ command -v npm >/dev/null 2>&1 \
 # Detect whether we're being run from inside an existing dotfiles checkout
 # vs. piped via curl. The script's own location is the strongest signal.
 if [ -n "${BASH_SOURCE[0]:-}" ] && \
-   [ -f "$(dirname "${BASH_SOURCE[0]}")/chimera-profile.yaml" ]
+   [ -f "$(dirname "${BASH_SOURCE[0]}")/khimaira-profile.yaml" ]
 then
     DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     note "running from existing dotfiles checkout: $DOTFILES_DIR"
@@ -97,33 +97,33 @@ else
     fi
 fi
 
-PROFILE="$DOTFILES_DIR/chimera-profile.yaml"
+PROFILE="$DOTFILES_DIR/khimaira-profile.yaml"
 [ -f "$PROFILE" ] || fail "profile not found at $PROFILE — does your dotfiles repo ship it?"
 
 # ---------------------------------------------------------------------------
-# 3. Clone + sync chimera
+# 3. Clone + sync khimaira
 # ---------------------------------------------------------------------------
-if [ ! -d "$CHIMERA_DEV_PATH/.git" ]; then
-    note "cloning chimera → $CHIMERA_DEV_PATH"
-    mkdir -p "$(dirname "$CHIMERA_DEV_PATH")"
-    git clone "$CHIMERA_REPO" "$CHIMERA_DEV_PATH"
+if [ ! -d "$KHIMAIRA_DEV_PATH/.git" ]; then
+    note "cloning khimaira → $KHIMAIRA_DEV_PATH"
+    mkdir -p "$(dirname "$KHIMAIRA_DEV_PATH")"
+    git clone "$KHIMAIRA_REPO" "$KHIMAIRA_DEV_PATH"
 fi
 
 # --all-packages is load-bearing on uv workspaces: a bare `uv sync` only
 # installs the root project's deps and drops member entry-point scripts.
-# Specifically that's where .venv/bin/chimera comes from — without
-# --all-packages, the chimera binary disappears and the rest of this
+# Specifically that's where .venv/bin/khimaira comes from — without
+# --all-packages, the khimaira binary disappears and the rest of this
 # script can't shell out to it.
-note "syncing chimera workspace (--all-packages)"
-(cd "$CHIMERA_DEV_PATH" && uv sync --all-packages)
+note "syncing khimaira workspace (--all-packages)"
+(cd "$KHIMAIRA_DEV_PATH" && uv sync --all-packages)
 
-[ -x "$CHIMERA_DEV_PATH/.venv/bin/chimera" ] \
-    || fail "uv sync didn't produce $CHIMERA_DEV_PATH/.venv/bin/chimera. Bailing — please investigate before retrying."
+[ -x "$KHIMAIRA_DEV_PATH/.venv/bin/khimaira" ] \
+    || fail "uv sync didn't produce $KHIMAIRA_DEV_PATH/.venv/bin/khimaira. Bailing — please investigate before retrying."
 
 # ---------------------------------------------------------------------------
 # 4. Put workspace venv on PATH for this shell and persist for new ones
 # ---------------------------------------------------------------------------
-export PATH="$CHIMERA_DEV_PATH/.venv/bin:$PATH"
+export PATH="$KHIMAIRA_DEV_PATH/.venv/bin:$PATH"
 
 # Pick the right shell rc file. Falls back to a printed instruction if we
 # can't infer the user's shell (e.g. nix-darwin with $SHELL unset).
@@ -135,8 +135,8 @@ case "$SHELL_NAME" in
     *)     RCFILE="" ;;
 esac
 
-PATH_EXPORT='export PATH="$HOME/dev/chimera/.venv/bin:$PATH"'
-PATH_MARKER='dev/chimera/.venv/bin'
+PATH_EXPORT='export PATH="$HOME/dev/khimaira/.venv/bin:$PATH"'
+PATH_MARKER='dev/khimaira/.venv/bin'
 
 if [ -z "$RCFILE" ]; then
     warn "unrecognized shell '$SHELL_NAME' — add this to your shell rc manually:"
@@ -148,8 +148,8 @@ elif [ "$SHELL_NAME" = "fish" ]; then
         note "appending PATH to $RCFILE"
         {
             echo ''
-            echo '# chimera workspace venv (added by dotfiles bootstrap)'
-            echo 'set -gx PATH $HOME/dev/chimera/.venv/bin $PATH'
+            echo '# khimaira workspace venv (added by dotfiles bootstrap)'
+            echo 'set -gx PATH $HOME/dev/khimaira/.venv/bin $PATH'
         } >> "$RCFILE"
     fi
 else
@@ -157,20 +157,20 @@ else
         note "appending PATH to $RCFILE"
         {
             echo ''
-            echo '# chimera workspace venv (added by dotfiles bootstrap)'
+            echo '# khimaira workspace venv (added by dotfiles bootstrap)'
             echo "$PATH_EXPORT"
         } >> "$RCFILE"
     fi
 fi
 
 # ---------------------------------------------------------------------------
-# 5. Run chimera bootstrap with the profile
+# 5. Run khimaira bootstrap with the profile
 # ---------------------------------------------------------------------------
 # --force handles the case where this is a re-bootstrap and a previous
 # partial run left a systemd unit / launchd plist whose contents drifted
 # from the current template.
-note "running chimera bootstrap (--force, profile=$PROFILE)"
-"$CHIMERA_DEV_PATH/.venv/bin/chimera" bootstrap --force --profile "$PROFILE"
+note "running khimaira bootstrap (--force, profile=$PROFILE)"
+"$KHIMAIRA_DEV_PATH/.venv/bin/khimaira" bootstrap --force --profile "$PROFILE"
 
 # ---------------------------------------------------------------------------
 # Done
@@ -180,4 +180,4 @@ note ""
 note "next steps:"
 note "  1. Open a new terminal (so PATH update is picked up)"
 note "  2. Run \`claude\` to verify the MCP servers are connected"
-note "  3. \`chimera sync\` or /chimera-configure to pull profile updates later"
+note "  3. \`khimaira sync\` or /khimaira-configure to pull profile updates later"

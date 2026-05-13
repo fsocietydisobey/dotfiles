@@ -1,8 +1,8 @@
 # /tell <target> <message> — send to anything (session OR project)
 
 Smart-routed one-way send. The `<target>` can be:
-- A **session name** (e.g. `chimera-builder`) — delivered as a notice to that session's inbox.
-- A **chimera-attached project label** (e.g. `backend`, `chimera`) — delivered as a handoff scoped to that project's cwd, so ANY future session running there sees it.
+- A **session name** (e.g. `khimaira-builder`) — delivered as a notice to that session's inbox.
+- A **khimaira-attached project label** (e.g. `backend`, `khimaira`) — delivered as a handoff scoped to that project's cwd, so ANY future session running there sees it.
 
 You don't pick the primitive. The server figures out which one based on the name and routes accordingly.
 
@@ -20,9 +20,9 @@ To force project-handoff semantics (e.g. if there's both a session AND a project
 1. `$ARGUMENTS` should be `<target> <message>`. Parse:
    - First whitespace-separated token = target (session name OR project label)
    - Everything after = message body
-   - If parse fails, render usage: `/tell <session_or_project> <message>`. List currently-known targets by calling `mcp__chimera__session_list` (sessions) and `Bash: chimera attached` (projects).
+   - If parse fails, render usage: `/tell <session_or_project> <message>`. List currently-known targets by calling `mcp__khimaira__session_list` (sessions) and `Bash: khimaira attached` (projects).
 
-2. Resolve your own session id (sender). Use the SessionStart hook value; fall back to `mcp__chimera__session_list` if unknown.
+2. Resolve your own session id (sender). Use the SessionStart hook value; fall back to `mcp__khimaira__session_list` if unknown.
 
 3. Hit the smart-route endpoint via curl:
    ```bash
@@ -35,10 +35,10 @@ To force project-handoff semantics (e.g. if there's both a session AND a project
    - `"notice"` — print `📨 sent as notice to session <target_session_id>`
    - `"project_handoff"` — print `📦 sent as project handoff scoped to <scope_cwd> — any future session in project '<project_label>' will see it`
 
-5. **On 404** (neither session nor project matched): the response detail will say so. Print it verbatim and suggest the user run `chimera attached` to see project labels or `session_list()` to see active session names.
+5. **On 404** (neither session nor project matched): the response detail will say so. Print it verbatim and suggest the user run `khimaira attached` to see project labels or `session_list()` to see active session names.
 
 ## Notes
 
-- The smart routing means `/tell backend "..."` works whether `backend` is a running session OR a chimera-attached project (in the user's case: it's a project). Don't ask the user to disambiguate; let the server route.
+- The smart routing means `/tell backend "..."` works whether `backend` is a running session OR a khimaira-attached project (in the user's case: it's a project). Don't ask the user to disambiguate; let the server route.
 - For notices: receiver agent's UserPromptSubmit hook surfaces the note on their next turn. Auto-expires after 3 surfaces if never explicitly acked.
 - For project handoffs: receiver session's SessionStart hook surfaces it on first boot in matching cwd. 7-day TTL by default.

@@ -1,13 +1,13 @@
-# /chimera-classify — Tier-check a task before committing to a chain
+# /khimaira-classify — Tier-check a task before committing to a chain
 
 Quick, cheap classification of a task — returns tier (research / architect / implement) + recommended pipeline. Use this when unsure whether a task is worth a full `chain_pipeline` run.
 
 ## Steps
 
-1. Call `mcp__chimera__classify` with:
+1. Call `mcp__khimaira__classify` with:
    - `task_description`: $ARGUMENTS
 2. Report the tier, confidence, recommended pipeline, and one-line reasoning.
-3. If the user wants to act on the recommendation, suggest the matching slash command (`/chimera-research`, `/chimera-architect`, `/chimera-chain`).
+3. If the user wants to act on the recommendation, suggest the matching slash command (`/khimaira-research`, `/khimaira-architect`, `/khimaira-chain`).
 
 ## Notes
 

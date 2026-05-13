@@ -1,15 +1,15 @@
-# /handoffs — Pull pending chimera handoffs into this session
+# /handoffs — Pull pending khimaira handoffs into this session
 
-Surface any cwd-scoped chimera handoffs that have been posted to this
+Surface any cwd-scoped khimaira handoffs that have been posted to this
 project since this session started. SessionStart's auto-surfacing only
 fires once at boot — when someone posts a handoff to your project
 after you've opened Claude Code, it can't reach you without this.
 
 ## What it does
 
-Calls `mcp__chimera__session_consume_handoffs(session_id, cwd)` where:
+Calls `mcp__khimaira__session_consume_handoffs(session_id, cwd)` where:
 
-- `session_id` is your session's chimera id
+- `session_id` is your session's khimaira id
 - `cwd` is your project root (typically `$CLAUDE_PROJECT_DIR` or the
   parent dir of files you've been editing this session)
 
@@ -40,7 +40,7 @@ you've already consumed.
 ## Output
 
 ```
-📦 chimera handoffs — N directive(s) you now OWN in <cwd>:
+📦 khimaira handoffs — N directive(s) you now OWN in <cwd>:
 
 - [handoff abc12345 · 2026-05-12T14:30:00 · from def67890]
   <handoff text>
@@ -52,7 +52,7 @@ highest-priority item, propose a first action, and START.
 Or, if a sister session beat you to the claim:
 
 ```
-👀 chimera handoffs — N already-claimed handoff(s) in <cwd>:
+👀 khimaira handoffs — N already-claimed handoff(s) in <cwd>:
 - [handoff abc12345 · from def67890 · OWNED BY 9d45c212]
   <handoff text>
 ```

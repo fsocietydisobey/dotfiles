@@ -1,20 +1,20 @@
-# Example chimera profile — derived from the current laptop's setup.
-# Drop this into your dotfiles repo as `chimera-profile.yaml`, then:
+# Example khimaira profile — derived from the current laptop's setup.
+# Drop this into your dotfiles repo as `khimaira-profile.yaml`, then:
 #
-#   chimera bootstrap --profile https://raw.githubusercontent.com/<you>/dotfiles/main/chimera-profile.yaml
+#   khimaira bootstrap --profile https://raw.githubusercontent.com/<you>/dotfiles/main/khimaira-profile.yaml
 #
 # Or, after dotfiles are cloned:
 #
-#   chimera bootstrap --profile ~/dotfiles/chimera-profile.yaml
+#   khimaira bootstrap --profile ~/dotfiles/khimaira-profile.yaml
 #
-# Re-run `chimera sync` on any machine to pick up profile changes
+# Re-run `khimaira sync` on any machine to pick up profile changes
 # (new symlinks, new MCP servers, etc.). Idempotent — safe on a cron.
 
 name: fsocietydisobey
 description: |
   Joseph's portable agent setup. Clones dotfiles + sibling MCP server
   repos under ~/dev/, symlinks Claude rules/commands, registers all
-  five chimera-ecosystem MCP servers + Linear, installs the supervisor.
+  five khimaira-ecosystem MCP servers + Linear, installs the supervisor.
 
 dotfiles:
   repo: git@github.com:fsocietydisobey/dotfiles.git
@@ -27,12 +27,12 @@ dotfiles:
     # - { src: cursor/rules, dest: ~/.cursor/rules }
 
 repos:
-  - name: chimera
-    url: git@github.com:fsocietydisobey/chimera.git
-    # `--all-packages` is load-bearing: chimera is a uv workspace and a
+  - name: khimaira
+    url: git@github.com:fsocietydisobey/khimaira.git
+    # `--all-packages` is load-bearing: khimaira is a uv workspace and a
     # plain `uv sync` only installs the root project's deps, which drops
-    # member-package entry-point scripts (notably `.venv/bin/chimera`).
-    # That breaks the chimera MCP launcher on the next Claude Code
+    # member-package entry-point scripts (notably `.venv/bin/khimaira`).
+    # That breaks the khimaira MCP launcher on the next Claude Code
     # session start. --all-packages keeps every member's bin in place.
     install: uv sync --all-packages
   - name: seance
@@ -49,12 +49,12 @@ repos:
     install: uv sync
 
 mcp_servers:
-  - name: chimera
-    # Use `python -m chimera.cli mcp` (not bare `chimera mcp`) so the
+  - name: khimaira
+    # Use `python -m khimaira.cli mcp` (not bare `khimaira mcp`) so the
     # launcher survives the workspace-sync churn that can drop
-    # .venv/bin/chimera. `python` and the `chimera` package are both
+    # .venv/bin/khimaira. `python` and the `khimaira` package are both
     # always present in the venv regardless of entry-point scripts.
-    command: uv --directory ~/dev/chimera run python -m chimera.cli mcp 2>>/tmp/chimera.log
+    command: uv --directory ~/dev/khimaira run python -m khimaira.cli mcp 2>>/tmp/khimaira.log
   - name: seance
     command: uv --directory ~/dev/seance run seance serve
   - name: specter
@@ -71,9 +71,9 @@ supervisor:
 
 spa_build: true
 
-# Re-write ~/.claude/settings.json with chimera's hooks on every
+# Re-write ~/.claude/settings.json with khimaira's hooks on every
 # bootstrap/sync. Lives outside dotfiles symlinks because hook command
-# paths embed the local chimera install path — symlinking from a
+# paths embed the local khimaira install path — symlinking from a
 # fixed-path dotfiles copy would write wrong paths on machines whose
 # username or install location differs.
 install_claude_hooks: true
