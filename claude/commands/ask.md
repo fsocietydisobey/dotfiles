@@ -12,9 +12,9 @@ For "leave a note for whoever opens the next chat" use `/handoff`.
 
 ## Behavior
 
-This command BLOCKS the current turn until the other session answers OR a 5-minute timeout fires. The user sees nothing until the answer comes back. They'll need to wake the target session by typing in its window — at that point its hook surfaces the question, the agent answers, and this turn unblocks with the answer in hand.
+This command BLOCKS the current turn until the other session answers OR a 15-minute timeout fires. The user sees nothing until the answer comes back. They'll need to wake the target session by typing in its window — at that point its hook surfaces the question, the agent answers, and this turn unblocks with the answer in hand.
 
-Default timeout: 300 seconds. Override with `--timeout <seconds>` (e.g. `/ask --timeout 60 khimaira-builder "..."`).
+Default timeout: 900 seconds (15 min). Override with `--timeout <seconds>` (e.g. `/ask --timeout 60 khimaira-builder "..."`). The default was bumped from 300s after real-use feedback — 5 min is often too short when the target session is mid-task and the user needs to switch terminals to wake it.
 
 ## Steps
 
@@ -22,7 +22,7 @@ Default timeout: 300 seconds. Override with `--timeout <seconds>` (e.g. `/ask --
    - Optional leading `--timeout <N>` flag
    - First non-flag token = target session id or friendly name
    - Everything after = the question body
-   - If parse fails, render: "Usage: `/ask [--timeout SECONDS] <session_or_name> <question>`. Default timeout is 300s. The target session needs to be woken (user types in its window) for the answer to flow back."
+   - If parse fails, render: "Usage: `/ask [--timeout SECONDS] <session_or_name> <question>`. Default timeout is 900s (15 min). The target session needs to be woken (user types in its window) for the answer to flow back."
 
 2. Resolve your own session id (sender). Use the value the SessionStart hook surfaced; fallback to `mcp__khimaira__session_list` if unknown.
 
@@ -39,5 +39,5 @@ Default timeout: 300 seconds. Override with `--timeout <seconds>` (e.g. `/ask --
 ## Notes
 
 - BLOCKING: don't `/ask` casually. If the target session isn't actively running and won't be woken soon, the turn just times out wastefully. Use `/tell` for things that don't need an answer right now.
-- 300s default is generous. Most cross-session asks resolve in <60s once you wake the target.
+- 900s default is generous. Most cross-session asks resolve in <60s once you wake the target — the long default just catches the cases where the target is mid-long-task and won't reach a prompt boundary for a while.
 - If you don't need the answer in the SAME turn (just want to leave a question), use `mcp__khimaira__session_log_question` directly — it's the non-blocking version.
