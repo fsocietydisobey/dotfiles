@@ -1,11 +1,11 @@
-# /delegate <targets> <task> — fan out a task to N listening agents
+# /khimaira-delegate <targets> <task> — fan out a task to N listening agents
 
-Master-side counterpart to `/listen`. Sends the same task to N agent sessions in parallel, blocks until they all answer (or timeout), then renders the collected results.
+Master-side counterpart to `/khimaira-listen`. Sends the same task to N agent sessions in parallel, blocks until they all answer (or timeout), then renders the collected results.
 
 ## Args
 
 ```
-/delegate agent-1,agent-2,agent-3 "research how X handles Y; cite file:line"
+/khimaira-delegate agent-1,agent-2,agent-3 "research how X handles Y; cite file:line"
 ```
 
 - **targets**: comma-separated list of agent session names or ids. The first whitespace token of `$ARGUMENTS` is the target list. Names resolved via the daemon (UUID or friendly name).
@@ -18,8 +18,8 @@ Master-side counterpart to `/listen`. Sends the same task to N agent sessions in
    - Split `targets_csv` on commas, strip whitespace → list of target names.
    - If either piece is empty, render usage:
      ```
-     Usage: /delegate <a1,a2,a3,...> <task description>
-     Each agent must have run `/listen` first. Default per-target timeout is 15 min.
+     Usage: /khimaira-delegate <a1,a2,a3,...> <task description>
+     Each agent must have run `/khimaira-listen` first. Default per-target timeout is 15 min.
      ```
 
 2. **Resolve master session id** — from SessionStart hook context or `session_list()` fallback.
@@ -43,8 +43,8 @@ Master-side counterpart to `/listen`. Sends the same task to N agent sessions in
    At the bottom, summarize: "✅ N answered, ⏱️ M timed out, ❌ K errored".
 
 6. **Next-step hint** — based on the results:
-   - All answered → suggest the user review + use `/accept` or `/reject` per agent.
-   - Some timed out → suggest user wake those agent windows (type anything) and re-run `/delegate` or `/ask <target>`.
+   - All answered → suggest the user review + use `/khimaira-accept` or `/khimaira-reject` per agent.
+   - Some timed out → suggest user wake those agent windows (type anything) and re-run `/khimaira-delegate` or `/ask <target>`.
    - All errored → flag the daemon may be unreachable; suggest `khimaira monitor start`.
 
 ## Caveats to surface
