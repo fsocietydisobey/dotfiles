@@ -12,9 +12,14 @@
 
 name: fsocietydisobey
 description: |
-  Joseph's portable agent setup. Clones dotfiles + sibling MCP server
-  repos under ~/dev/, symlinks Claude rules/commands, registers all
-  five khimaira-ecosystem MCP servers + Linear, installs the supervisor.
+  Joseph's portable agent setup. Post-NORTH_STAR-Phase-0 (2026-05-13):
+  seance/specter/scarlet/sibyl tools now ship inside the khimaira
+  workspace at packages/{name}/ and re-register on khimaira's MCP at
+  boot. The standalone clones of those siblings (still listed in repos:
+  below) are no longer needed for the unified MCP — keeping them
+  documented is OK if you want a quick reference checkout, but new
+  machines can skip them. Only the khimaira repo itself is load-bearing
+  for the MCP surface.
 
 dotfiles:
   repo: git@github.com:fsocietydisobey/dotfiles.git
@@ -36,15 +41,11 @@ repos:
     # That breaks the khimaira MCP launcher on the next Claude Code
     # session start. --all-packages keeps every member's bin in place.
     install: uv sync --all-packages
-  - name: seance
-    url: git@github.com:fsocietydisobey/seance.git
-    install: uv sync
-  - name: specter
-    url: git@github.com:fsocietydisobey/specter.git
-    install: uv sync
-  - name: scarlet
-    url: git@github.com:fsocietydisobey/scarlet.git
-    install: uv sync
+  # Post-Phase-0 (2026-05-13): seance/specter/scarlet/sibyl standalone
+  # clones at ~/dev/ are deprecated. Their tools now expose via khimaira's
+  # unified MCP under prefixed names (mcp__khimaira__seance_*, etc.).
+  # Removed from this profile so fresh-machine bootstrap doesn't clone
+  # redundant trees + register them as standalone MCP servers.
   - name: ai-orchestrator
     url: git@github.com:fsocietydisobey/ai-orchestrator.git
     install: uv sync
@@ -55,13 +56,10 @@ mcp_servers:
     # launcher survives the workspace-sync churn that can drop
     # .venv/bin/khimaira. `python` and the `khimaira` package are both
     # always present in the venv regardless of entry-point scripts.
+    # This ONE entry surfaces khimaira native tools AND the prefixed
+    # seance_*/specter_*/scarlet_*/sibyl_* tools (re-registered at boot
+    # via khimaira.server.sibling_tools — see Phase 0 unification).
     command: uv --directory ~/dev/khimaira run python -m khimaira.cli mcp 2>>/tmp/khimaira.log
-  - name: seance
-    command: uv --directory ~/dev/seance run seance serve
-  - name: specter
-    command: uv --directory ~/dev/specter run specter serve
-  - name: scarlet
-    command: uv --directory ~/dev/scarlet run scarlet serve
   - name: ai-orchestrator
     command: uv --directory ~/dev/ai-orchestrator run ai-orchestrator 2>>/tmp/orchestrator.log
   - name: linear
