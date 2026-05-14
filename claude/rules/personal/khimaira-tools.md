@@ -2,7 +2,7 @@
 
 ## TL;DR
 
-For conceptual codebase queries, try `seance_semantic_search` BEFORE grep. For frontend bugs you can see in the browser, start with `specter_debug_snapshot`. For "map this feature / what does it export" questions, call `scarlet_scan_features` or `scarlet_extract_feature_metadata`. For meeting recording / transcription, the `sibyl_*` tools. Reflexive grep loses information these tools have already indexed.
+For conceptual codebase queries, try `seance_semantic_search` BEFORE grep. For ANY UI change (verify it rendered) or browser-visible bug (debug it), use `specter_debug_snapshot` — Specter is a verify tool, not just a debug tool; `tsc passing` ≠ "the user sees what I think they see." For "map this feature / what does it export" questions, call `scarlet_scan_features` or `scarlet_extract_feature_metadata`. For meeting recording / transcription, the `sibyl_*` tools. Reflexive grep loses information these tools have already indexed.
 
 ## Why this rule exists
 
@@ -31,9 +31,29 @@ The cost asymmetry: grep + a handful of file reads burns 5-20 tool calls and tok
 
 If `semantic_search` returns nothing useful, rephrase the query more abstractly — embeddings are sensitive to framing. Don't keyword-optimize the query; describe what you're looking for conceptually.
 
-## Specter — browser debugging via CDP
+## Specter — browser verification AND debugging via CDP
 
-**Use when** the bug is visible in the browser:
+Specter has two equal-billed use cases. Both are first-class. The most common failure mode is treating it as debug-only and never reaching for it after shipping a UI change — that's how visual regressions leak past `tsc --noEmit`.
+
+**Use case 1 — VERIFY (after any UI change):**
+
+After editing a `.tsx` / `.jsx` / `.vue` / `.svelte` / template file that changes what the user sees, screenshot the result. `tsc passing` is not "the user sees what I think they see." `twMerge` can resolve Tailwind conflicts the opposite of how I expect; `flex-row` can lose to `flex-col`; z-index can hide the change; a stale build can serve the old bundle even though my source edit is correct.
+
+Triggers (any of these = run `specter_debug_snapshot` before reporting done):
+
+- Edited a component file under `apps/` / `src/components/` / `frontend/`
+- Added or moved a UI element the user described visually ("draggable card", "new button", "make it red")
+- Changed Tailwind classes on anything the user can see
+- Rebuilt a bundle that the user is actively viewing in a browser tab
+
+The verification flow:
+1. Rebuild if needed (`npm run build` in the affected app — the daemon/server may serve a static `dist/`, so source edits aren't live until rebuild).
+2. `specter_list_tabs` → find the relevant tab.
+3. `specter_connect_to_tab` + `specter_reload_page` (or `navigate_to` if the change affects routing).
+4. `specter_debug_snapshot` → confirm the change is visible.
+5. Only if the screenshot looks wrong, drill into console logs / evaluate_js / component tree.
+
+**Use case 2 — DEBUG (when the bug is visible in the browser):**
 
 - Page misbehavior, console errors, network failures, layout regressions
 - "Why is this button not working?"
@@ -41,9 +61,9 @@ If `semantic_search` returns nothing useful, rephrase the query more abstractly 
 - React component-tree inspection
 - Anything you'd otherwise ask the user to screenshot or open DevTools for
 
-**Skip when** the bug is backend-only (no browser involvement) or the user hasn't started Chrome with `--remote-debugging-port=9222` (Specter needs CDP connectivity).
+**Skip when** the bug is backend-only (no browser involvement) or the user hasn't started Chrome with `--remote-debugging-port=9222` (Specter needs CDP connectivity). Pure refactors with zero visual impact also skip verify — but the bar is "literally zero visual change," not "I think it looks right."
 
-**Workflow:**
+**Workflow (debugging side):**
 
 1. **Always start with `specter_debug_snapshot()`** — one call returns screenshot + page info + console errors + network errors + page structure. Use this first; call individual tools only to drill into specifics.
 2. For data-shape questions, use `specter_evaluate_js("console.log(JSON.stringify(...))")` then `specter_get_console_logs()`. Do not guess at runtime data — inspect it.
@@ -102,7 +122,9 @@ Question shape:
 │   └── Grep (or Serena's find_symbol if available)
 ├── Conceptual codebase question ("how does X work")
 │   └── seance_semantic_search (after confirming index exists)
-├── Visible-in-browser bug
+├── Just shipped a UI change → VERIFY it rendered
+│   └── specter_debug_snapshot (post-rebuild)
+├── Visible-in-browser bug → DEBUG it
 │   └── specter_debug_snapshot → drill in
 ├── Feature structure / dep graph / docs scaffolding
 │   └── scarlet_*
@@ -115,6 +137,7 @@ When in doubt and the project is indexed in Séance, try `seance_semantic_search
 ## Anti-patterns
 
 - **Don't grep when you could semantic-search.** "How does X work" + 8 grep calls + 4 file reads is the failure mode. One `seance_semantic_search` returns the same answer.
+- **Don't ship UI changes without a Specter screenshot.** `tsc --noEmit passing` + "the diff looks right" is not verification. Open the tab, screenshot the result, then report done. The user can already see the screen; the AI cannot — Specter closes that gap. Failure mode: shipping a draggable-card change, typechecking, declaring done; user opens the browser and the card is invisible due to a z-index conflict the AI never saw.
 - **Don't guess at browser-side state.** If you need to know what `myVar` looks like at runtime, `specter_evaluate_js` it — don't reason from the React source about what state *should* be.
 - **Don't ask Scarlet for prose.** It surfaces structure (exports, dep graphs, invariant candidates). Prose comes from the AI reading code with that structure as scaffolding.
 - **Don't skip `seance_list_projects` before searching.** A 1-tool-call check beats a 0-result search that wastes a round trip + leaves you unsure if the project is indexed.
