@@ -2,7 +2,7 @@
 
 ## TL;DR
 
-For conceptual codebase queries, try `seance_semantic_search` BEFORE grep. For frontend bugs you can see in the browser, start with `specter_debug_snapshot`. For "map this feature / what does it export" questions, call `scarlet_scan_features` or `scarlet_extract_feature_metadata`. Reflexive grep loses information these tools have already indexed.
+For conceptual codebase queries, try `seance_semantic_search` BEFORE grep. For frontend bugs you can see in the browser, start with `specter_debug_snapshot`. For "map this feature / what does it export" questions, call `scarlet_scan_features` or `scarlet_extract_feature_metadata`. For meeting recording / transcription, the `sibyl_*` tools. Reflexive grep loses information these tools have already indexed.
 
 ## Why this rule exists
 
@@ -49,6 +49,27 @@ If `semantic_search` returns nothing useful, rephrase the query more abstractly 
 2. For data-shape questions, use `specter_evaluate_js("console.log(JSON.stringify(...))")` then `specter_get_console_logs()`. Do not guess at runtime data — inspect it.
 3. For navigation during an in-app flow, prefer `specter_click_element` over `specter_navigate_to` — clicking exercises the app's router and preserves state. Use `specter_router_navigate` for deep-linking; reserve hard `navigate_to` for cross-origin or deliberate resets.
 4. Wrong data after an API call? `specter_get_network_log(url_filter='/api/...')` — the bug is often in the response transformation, not the component.
+
+## Sibyl — meeting recording + transcription
+
+**Use when** the user mentions a meeting, audio file, or transcript:
+
+- "Start recording the meeting" → `sibyl_record_start`
+- "I'm done with the meeting" → `sibyl_record_stop(recording_id)`
+- "What's still recording?" → `sibyl_list_active_recordings`
+- "Transcribe this audio file" → `sibyl_transcribe(audio_path)`
+- "Summarize / extract action items from this meeting" → `sibyl_process(audio_path)` (full LangGraph pipeline: transcribe → summarize + extract + emotion in parallel)
+- "Just give me a summary of this transcript" → `sibyl_summarize(transcript)`
+
+**Skip when** there's no audio source — Sibyl needs a WAV file or live mic / system-audio capture. Doesn't generate audio from text.
+
+**Workflow:**
+
+- For an in-progress meeting: `record_start` → meeting happens → `record_stop` returns the path → `process(path)` runs the full pipeline in one call.
+- For an existing audio file: `process(path)` directly.
+- For narrower needs, `transcribe` (transcript only) or `summarize` (transcript → summary) are cheaper than the full pipeline.
+
+Sibyl's name comes from the Cumaean Sibyl whose body withered until only her voice remained, preserved in writing — same shape as a meeting recording outliving its moment.
 
 ## Scarlet — codebase cartography
 

@@ -19,10 +19,10 @@ Two MCP servers available (after NORTH_STAR Phase 0 / 2026-05-13 unification). U
 
 | Server | Purpose |
 |---|---|
-| **Khimaira** | Unified surface — orchestration + LangGraph monitor + multi-session shared state + process observability + semantic code search (Séance, `seance_*` tools) + browser debugging via CDP (Specter, `specter_*` tools) + codebase cartography (Scarlet, `scarlet_*` tools). One MCP connection, ~113 tools. |
+| **Khimaira** | Unified surface — orchestration + LangGraph monitor + multi-session shared state + process observability + semantic code search (Séance, `seance_*` tools) + browser debugging via CDP (Specter, `specter_*` tools) + codebase cartography (Scarlet, `scarlet_*` tools) + meeting audio capture + transcription (Sibyl, `sibyl_*` tools). One MCP connection, ~119 tools. |
 | **Serena** | LSP-powered symbol navigation (jeevy_portal only). Not part of the khimaira workspace. |
 
-Séance, Specter, and Scarlet now ship inside the khimaira workspace at `packages/{seance,specter,scarlet}/`. Their FastMCP tools are re-registered on khimaira's MCP server at boot under source-prefixed names. The legacy standalone `seance serve` / `specter serve` / `scarlet serve` paths continue to work for backward compatibility — drop them from `claude mcp` once khimaira is registered.
+Séance, Specter, Scarlet, and Sibyl now ship inside the khimaira workspace at `packages/{seance,specter,scarlet,sibyl}/`. Their FastMCP tools are re-registered on khimaira's MCP server at boot under source-prefixed names. The legacy standalone `seance serve` / `specter serve` / `scarlet serve` / `sibyl serve` paths continue to work for backward compatibility — drop them from `claude mcp` once khimaira is registered.
 
 ## Khimaira session logging
 
