@@ -1,7 +1,7 @@
 ---
 name: khimaira-code-deep
 description: Implement a non-trivial code change that requires judgment — not just mechanical edits. Use for new functions / methods, refactors that span 2-3 files, adding a feature with clear specs, writing tests for new logic. Do NOT use for fully-specified one-liners (khimaira-code-fast is cheaper) or for architectural decisions (khimaira-architect).
-tools: Read, Edit, Write, Bash, Glob, Grep, mcp__seance__semantic_search, mcp__seance__find_similar
+tools: Read, Edit, Write, Bash, Glob, Grep, mcp__khimaira__seance_semantic_search, mcp__khimaira__seance_find_similar
 model: sonnet
 ---
 

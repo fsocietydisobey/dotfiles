@@ -1,7 +1,7 @@
 ---
 name: khimaira-architect
 description: Make a non-trivial design decision — module boundaries, data flow, abstraction choice, trade-off between architecture options. Use when the question is "how should this be structured" rather than "implement X". Do NOT use for code that fits an existing pattern (khimaira-code-deep) or factual lookups (khimaira-factual).
-tools: Read, Glob, Grep, Bash, mcp__seance__semantic_search, mcp__seance__find_similar, mcp__scarlet__analyze_project, mcp__scarlet__generate_dep_graph, mcp__scarlet__list_consumers
+tools: Read, Glob, Grep, Bash, mcp__khimaira__seance_semantic_search, mcp__khimaira__seance_find_similar, mcp__khimaira__scarlet_analyze_project, mcp__khimaira__scarlet_generate_dep_graph, mcp__khimaira__scarlet_list_consumers
 model: opus
 ---
 

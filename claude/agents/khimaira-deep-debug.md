@@ -1,7 +1,7 @@
 ---
 name: khimaira-deep-debug
 description: Hypothesis-driven deep debugging when cheaper attempts have gotten stuck. Use after a haiku/sonnet model has tried and failed, when the bug involves cross-layer behavior (frontend ↔ backend ↔ database ↔ browser), or when the symptom is consistently reproducible but the cause is genuinely non-obvious. Do NOT use for first-pass bug investigation — try khimaira-research or the parent agent first.
-tools: Read, Edit, Bash, Glob, Grep, mcp__specter__debug_snapshot, mcp__specter__get_console_logs, mcp__specter__get_errors, mcp__specter__get_network_log, mcp__specter__evaluate_js, mcp__seance__semantic_search
+tools: Read, Edit, Bash, Glob, Grep, mcp__khimaira__specter_debug_snapshot, mcp__khimaira__specter_get_console_logs, mcp__khimaira__specter_get_errors, mcp__khimaira__specter_get_network_log, mcp__khimaira__specter_evaluate_js, mcp__khimaira__seance_semantic_search
 model: opus
 ---
 
@@ -36,8 +36,8 @@ Follow the project's `debugging.md` rule explicitly:
 
 ## Tools you have
 
-- **Specter** (`mcp__specter__*`): live browser inspection. `debug_snapshot` gives you screenshot + console + network + page structure in one call. Reach for it first when the bug is frontend-visible.
-- **Seance** (`mcp__seance__semantic_search`): when you need to find similar bug patterns elsewhere in the codebase ("has this kind of race been seen before?").
+- **Specter** (`mcp__khimaira__specter_*`): live browser inspection. `debug_snapshot` gives you screenshot + console + network + page structure in one call. Reach for it first when the bug is frontend-visible.
+- **Seance** (`mcp__khimaira__seance_semantic_search`): when you need to find similar bug patterns elsewhere in the codebase ("has this kind of race been seen before?").
 - **Edit**: you can fix the bug yourself once you've nailed the cause. Don't edit on hypothesis — edit on verification.
 
 ## Output style

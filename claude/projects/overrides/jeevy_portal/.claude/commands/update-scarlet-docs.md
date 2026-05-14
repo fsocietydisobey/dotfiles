@@ -8,12 +8,12 @@ Audit Scarlet-generated feature documentation, categorize what's stale, and rege
 
 Run these in parallel:
 
-- `mcp__scarlet__analyze_project(path="/home/_3ntropy/work/jeevy_portal")` — baseline framework/structure info
-- `mcp__scarlet__scan_features(path="/home/_3ntropy/work/jeevy_portal")` — enumerate every feature with its current state
+- `mcp__khimaira__scarlet_analyze_project(path="/home/_3ntropy/work/jeevy_portal")` — baseline framework/structure info
+- `mcp__khimaira__scarlet_scan_features(path="/home/_3ntropy/work/jeevy_portal")` — enumerate every feature with its current state
 
 ### 2. Find what's stale
 
-For each feature that has a CLAUDE.md, call `mcp__scarlet__lint_claude_md(feature_path=<feature.path>)` **in parallel** (one call per feature). Collect all reports.
+For each feature that has a CLAUDE.md, call `mcp__khimaira__scarlet_lint_claude_md(feature_path=<feature.path>)` **in parallel** (one call per feature). Collect all reports.
 
 Separately, determine recently-touched features:
 
@@ -127,7 +127,7 @@ The `anchor_before` / `anchor_after` let you splice it back in roughly the same 
 Call:
 
 ```
-mcp__scarlet__build_claude_md(
+mcp__khimaira__scarlet_build_claude_md(
     project_path="/home/_3ntropy/work/jeevy_portal",
     feature_path=<feature.path>,
     write=True
@@ -165,7 +165,7 @@ Print a summary table: features regenerated cleanly, features with warnings, fea
 For `missing_barrel` features, emit the one-liner to fix manually if desired:
 
 ```
-mcp__scarlet__generate_barrel(feature_path=..., write=True)
+mcp__khimaira__scarlet_generate_barrel(feature_path=..., write=True)
 ```
 
 ---

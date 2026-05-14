@@ -26,7 +26,7 @@ Based on the user's answers, gather material:
 
 ### 2a. Semantic search
 
-Call `mcp__seance__semantic_search` with the topic. Use `project="jeevy_portal"`. Read the top 10 results to surface the obvious files.
+Call `mcp__khimaira__seance_semantic_search` with the topic. Use `project="jeevy_portal"`. Read the top 10 results to surface the obvious files.
 
 ### 2b. Scoped grep
 

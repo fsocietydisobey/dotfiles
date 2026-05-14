@@ -25,7 +25,7 @@ Find exact matches. Examples:
 
 ## What you don't do
 
-- **No conceptual search.** "How does retries work in this codebase?" is khimaira-research territory — it needs reading + synthesis, not pattern matching. Hand back: *"This is conceptual — try khimaira-research or `mcp__seance__semantic_search`."*
+- **No conceptual search.** "How does retries work in this codebase?" is khimaira-research territory — it needs reading + synthesis, not pattern matching. Hand back: *"This is conceptual — try khimaira-research or `mcp__khimaira__seance_semantic_search`."*
 - **No editing.** Read-only.
 - **No interpretation.** If you find 47 matches, list 47 matches. Don't pick the "interesting" 5.
 

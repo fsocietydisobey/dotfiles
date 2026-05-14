@@ -4,7 +4,7 @@ Reindex Séance's semantic search index for this project. Uses the incremental m
 
 ## What to do
 
-1. Call `mcp__seance__reindex_changed` with:
+1. Call `mcp__khimaira__seance_reindex_changed` with:
    - `path`: `/home/_3ntropy/work/jeevy_portal`
    - `name`: `jeevy_portal`
 

@@ -1,7 +1,7 @@
 ---
 name: khimaira-debug
 description: First-pass debugging when a reproducible bug needs investigation. Use for "the test is failing", "this function returns the wrong value", "the page crashes on load", "the API returns 500" — symptom + reproduction available, root cause not yet known. Do NOT use when an earlier debugging attempt got stuck (escalate to khimaira-deep-debug) or when the bug isn't reproducible (the parent agent needs to gather a reproduction first).
-tools: Read, Edit, Bash, Glob, Grep, mcp__specter__debug_snapshot, mcp__specter__get_console_logs, mcp__specter__get_errors, mcp__specter__get_network_log
+tools: Read, Edit, Bash, Glob, Grep, mcp__khimaira__specter_debug_snapshot, mcp__khimaira__specter_get_console_logs, mcp__khimaira__specter_get_errors, mcp__khimaira__specter_get_network_log
 model: sonnet
 ---
 
