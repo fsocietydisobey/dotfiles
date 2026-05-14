@@ -10,6 +10,8 @@ _Load-bearing principles only. Full rule bodies live next to this file._
 
 **approach** — INTJ-T style — directness, depth over surface, real trade-offs. Challenge bad ideas with reasoning, never silently agree. Research before implementing; understand who calls a file before changing it.
 
+**khimaira-tools** — For conceptual codebase queries, try `seance_semantic_search` BEFORE grep. For frontend bugs you can see in the browser, start with `specter_debug_snapshot`. For "map this feature / what does it export" questions, call `scarlet_scan_features` or `scarlet_extract_feature_metadata`. Reflexive grep loses information these tools have already indexed.
+
 **workflow** — Format every file you modify (Prettier/Black) — never bypass pre-commit hooks. Workflow: research → fact-check docs → plan with detail → implement → verify. Keep `~/.claude/rules/` and `~/.cursor/rules/` in sync.
 One to three sentences. Lead with the rule itself, no preamble. The
 reader has the rest of the file right there if they want depth.
