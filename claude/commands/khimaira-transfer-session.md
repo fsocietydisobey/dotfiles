@@ -1,6 +1,6 @@
 # /khimaira-transfer-session <new-session-name> — full context handoff to a fresh session
 
-When this session's context window gets noisy/bloated but the work isn't done, this command packages every load-bearing piece of state — open tasks, recent decisions, in-flight work, scheduled wakeups, sister-session activity, project context — and hands it to whatever new Claude Code session boots next in the current cwd.
+When this session's context window gets noisy/bloated but the work isn't done, this command packages every load-bearing piece of state — open tasks, recent decisions, in-flight work, scheduled wakeups, sister-session activity, project context, **AND active chat memberships with sister agents** — and hands it to whatever new Claude Code session boots next in the current cwd.
 
 **The user types one command. Everything else is automatic:**
 
@@ -10,7 +10,9 @@ When this session's context window gets noisy/bloated but the work isn't done, t
 4. The new session's SessionStart hook auto-surfaces the handoff
 5. New session reads the context block, names itself `<new-session-name>`, asks follow-ups only if needed
 6. Donor answers follow-ups (its UserPromptSubmit hook surfaces each one on next turn)
-7. New session signals `transfer complete`; donor stands down
+7. New session signals `transfer complete`
+8. **Donor auto-transfers all active chat memberships to the recipient** (Phase B v1.2 — see step 8 below). Sister agents see `📦 transferred to <recipient>` channel blocks; recipient picks up every conversation transparently
+9. Donor stands down
 
 ## Steps for the donor (this session)
 
@@ -142,12 +144,17 @@ asked + received answers to your follow-ups), signal the donor:
         from_session_id="<your-session-id>"
     )
 
-After that, the donor stands down on the active work (status flips to
-`idle` or `transferred-out`). You own the work from then on.
+After that, the donor:
+1. Stands down on the active work (status flips to `idle` or `transferred-out`).
+2. **Auto-transfers all of its active chat memberships to you** (Phase B v1.2). On your NEXT turn, you'll see one `📦 <donor-name> transferred this chat to <your-name> — full context handoff` channel block per inherited chat. Sister agents in those chats see the same block and update their understanding of who they're talking to. You can read full transcripts via `chat_history(chat_id, your_session_id)` — the JSONL persists across the transfer.
+
+You own the work from then on.
 
 If you need to pull the donor back later (e.g. it had specific knowledge
 about something you didn't realize you needed), `session_log_question`
 still works — the donor session stays alive, just inactive.
+
+If you don't want to inherit a particular chat (e.g. it's no longer relevant), call `chat_leave(chat_id)` on it — leaving any inherited chat is harmless and doesn't affect the others.
 
 ---
 
@@ -222,7 +229,7 @@ when the recipient signals complete.
 
 - **The handoff body is the contract.** Anything not in the handoff is information the recipient might miss. Err on the side of more detail in the "active work mid-stream" prose (step 5 of the template). It's the highest-leverage section.
 
-- **No new MCP tool.** Composes `session_post_handoff` + `session_log_question` + `session_post_answer` + `session_post_notice` + `session_set_name` + `session_set_status` + `session_log_decision` — all existing primitives.
+- **Composes existing primitives + one Phase B v1.2 addition.** Uses `session_post_handoff` + `session_log_question` + `session_post_answer` + `session_post_notice` + `session_set_name` + `session_set_status` + `session_log_decision` for the session-level handoff; **plus `chat_transfer_membership` (Phase B v1.2) for the chat-membership transfer step that fires after the recipient signals complete**. The chat transfer is the only new primitive — everything else is existing.
 
 ## Edge cases
 
