@@ -6,9 +6,11 @@ For conceptual codebase queries, try `seance_semantic_search` BEFORE grep. For A
 
 ## Why this rule exists
 
-Khimaira ships three perception tools — Séance (semantic search), Specter (browser debug), Scarlet (codebase cartography) — but in practice they lose to reflexive `Grep` and `Read`. The tools' descriptions alone don't establish primacy; an explicit rule does. This file IS that rule.
+Khimaira ships four perception tools — Séance (semantic search), Specter (browser verify + debug), Scarlet (codebase cartography), Sibyl (audio + transcription) — but in practice they lose to reflexive `Grep` and `Read`. The tools' descriptions alone don't establish primacy; an explicit rule does. This file IS that rule.
 
 The cost asymmetry: grep + a handful of file reads burns 5-20 tool calls and tokens for context that one `seance_semantic_search` would return in a single call. The deciding factor is whether the question is *symbolic* (exact name → grep wins) or *conceptual* (meaning → seance wins).
+
+**Each family section below ends with a full tool index.** This is load-bearing: most `khimaira__*` MCP tools are *deferred* — they appear by NAME in the session's tool list but their schemas aren't loaded until `ToolSearch(query="select:mcp__khimaira__<name>")` fetches them. So if a tool isn't in this rule, the model can't discover it by introspection — it has to know the name to query. The indexes below close that gap. When you need browser interaction beyond the workflow primitives, scan the index first; reach for `evaluate_js` LAST, not first.
 
 ## Séance — semantic search
 
@@ -30,6 +32,18 @@ The cost asymmetry: grep + a handful of file reads burns 5-20 tool calls and tok
 4. If the project ISN'T indexed, fall back to grep + recommend the user run `khimaira attach <project>` (which will eventually auto-index) or invoke `seance_index_project(path=...)` directly.
 
 If `semantic_search` returns nothing useful, rephrase the query more abstractly — embeddings are sensitive to framing. Don't keyword-optimize the query; describe what you're looking for conceptually.
+
+### Séance — full tool index
+
+Every `seance_*` tool. Use these names directly with `ToolSearch(query="select:mcp__khimaira__seance_<name>")` to load the schema before calling.
+
+| Tool | One-line use case |
+|---|---|
+| `seance_list_projects` | Show what's indexed. ALWAYS call this first before searching. |
+| `seance_semantic_search` | Natural-language query → ranked code chunks. The main primitive. |
+| `seance_find_similar` | "What else looks like this symbol?" — duplicate-detection + pattern lookup. Takes (project, file_path, symbol_name). |
+| `seance_index_project` | First-time index a project. Slow (parses + embeds all files). |
+| `seance_reindex_changed` | Incremental update via `git diff`. Use this after pulls / commits, not full reindex. Project must be a git repo. |
 
 ## Specter — browser verification AND debugging via CDP
 
@@ -69,6 +83,72 @@ The verification flow:
 2. For data-shape questions, use `specter_evaluate_js("console.log(JSON.stringify(...))")` then `specter_get_console_logs()`. Do not guess at runtime data — inspect it.
 3. For navigation during an in-app flow, prefer `specter_click_element` over `specter_navigate_to` — clicking exercises the app's router and preserves state. Use `specter_router_navigate` for deep-linking; reserve hard `navigate_to` for cross-origin or deliberate resets.
 4. Wrong data after an API call? `specter_get_network_log(url_filter='/api/...')` — the bug is often in the response transformation, not the component.
+
+### Specter — full tool index
+
+Every `specter_*` tool, grouped by purpose. The failure mode this list prevents: reaching for `evaluate_js` to hand-roll something that already has a dedicated tool. If a need below sounds like what you have, USE THE NAMED TOOL — it handles framework quirks (React controlled inputs, Next.js routers, redux fiber walks) that hand-rolled JS gets wrong.
+
+**Snapshot + inspect:**
+| Tool | Use case |
+|---|---|
+| `specter_debug_snapshot` | One-shot composite: screenshot + URL + console errors + network errors + page structure. START HERE. |
+| `specter_take_screenshot` | PNG of viewport or full page. `selector` arg for element-only screenshot. Read the returned path with the Read tool to view. |
+| `specter_get_page_info` | URL + title + readyState. Quick "where am I?". |
+| `specter_get_page_structure` | Semantic landmarks tree (nav, main, dialogs, widgets) — better than parsing a screenshot for layout questions. |
+| `specter_get_dom_html` | Rendered HTML of `body` or a selector. Inner or outer. |
+
+**Tabs + navigation:**
+| Tool | Use case |
+|---|---|
+| `specter_list_tabs` | All open browser tabs with IDs. Use FIRST to find the right app tab. |
+| `specter_connect_to_tab` | Switch Specter's CDP connection to a specific tab. |
+| `specter_navigate_to` | Hard URL load (resets state). Use sparingly — prefer `click_element` or `router_navigate`. |
+| `specter_router_navigate` | SPA soft navigation (`<a>` click then `location.href` fallback). Preserves Redux/React context. |
+| `specter_reload_page` | Reload current tab; `ignore_cache=True` for hard reload. |
+
+**Interaction (each handles the framework quirks evaluate_js can't):**
+| Tool | Use case |
+|---|---|
+| `specter_click_element` | Scrolls into view + fires mousedown→mouseup→click. React-aware. |
+| `specter_hover_element` | Synthetic mouseenter+mouseover+mousemove. Reveals hover-only UI. |
+| `specter_fill_input` | Type into input/textarea — uses native value setter so React controlled inputs accept it. |
+| `specter_select_option` | Pick a `<select>` option by value or visible text. |
+| `specter_press_key` | Enter/Escape/Tab/arrows + single chars; supports ctrl/shift/alt/meta modifiers. |
+| `specter_set_file_input` | Attach local files to `<input type="file">` via CDP. The ONLY programmatic way; bypasses native-picker restrictions. |
+
+**Scroll + wait:**
+| Tool | Use case |
+|---|---|
+| `specter_scroll_to_element` | Bring an off-screen element into the viewport. Do this before screenshot/click of below-fold content. |
+| `specter_scroll_within` | Step-scroll a container (modals, virtualized lists). Reports `atEnd` so you know when to stop. |
+| `specter_wait_for_element` | Poll until an element exists + has layout. Use after clicks that trigger lazy load or modals. |
+| `specter_wait_for_network_idle` | Wait until no in-flight HTTP requests for `idle_ms`. Use after navigation before screenshot. |
+
+**Logs + errors (buffered automatically — no setup needed):**
+| Tool | Use case |
+|---|---|
+| `specter_get_console_logs` | console.log/warn/error/info with source locations. Filter by `level`, `since`, `limit`. |
+| `specter_get_errors` | Unhandled JS exceptions with stack traces. |
+| `specter_get_network_log` | All HTTP requests. Filter by `url_filter` substring. |
+| `specter_get_network_errors` | Just the 4xx/5xx/network failures. |
+| `specter_clear_logs` | Reset all buffers before reproducing a specific bug. |
+
+**React + Redux (works only in dev mode):**
+| Tool | Use case |
+|---|---|
+| `specter_check_react` | Probe what's available (React version, Redux DevTools, Next data). Run before reaching for the deeper tools. |
+| `specter_get_component_tree` | Full React fiber tree with props + hooks. Same view as React DevTools. |
+| `specter_get_component_at` | "Which component owns this DOM element?" + parent chain. |
+| `specter_get_elements_grouped_by_component` | Disambiguates "this selector returns 6 elements" by grouping under their React owner. |
+| `specter_get_interactive_elements` | Every clickable/typeable element with a stable selector + role + state. |
+| `specter_get_interactive_elements_grouped` | Same, grouped by ARIA landmark + component. Use when the flat list is too long. |
+| `specter_get_redux_state` | Read the Redux store via fiber walk. PREFERRED over hand-rolled `evaluate_js` for store reads — walks all fiber roots, handles Next.js multi-root case. |
+| `specter_get_redux_actions` | Reports Redux DevTools availability + current state shape. |
+
+**Eval (escape hatch — use the dedicated tools above first):**
+| Tool | Use case |
+|---|---|
+| `specter_evaluate_js` | Run arbitrary JS in the page. Use when no dedicated tool fits — NOT as a first reach. |
 
 ## Sibyl — meeting recording + transcription
 
@@ -113,6 +193,22 @@ Sibyl's name comes from the Cumaean Sibyl whose body withered until only her voi
 5. `scarlet_build_claude_md(...)` to generate the docs skeleton; you fill in Vocabulary / Conventions / Common tasks / Gotchas from reading code
 
 Scarlet generates **structure**; you generate **meaning**. Don't expect prose from it — that's your job.
+
+### Scarlet — full tool index
+
+Every `scarlet_*` tool. Scarlet expects a `features/` folder convention (most React/Next.js); returns cleanly empty on projects that don't fit.
+
+| Tool | Use case |
+|---|---|
+| `scarlet_analyze_project` | Project overview: framework, TS usage, state lib, test framework, package manager, feature count. Use FIRST to confirm Scarlet applies. |
+| `scarlet_scan_features` | List every feature with its current state (has CLAUDE.md? has barrel? counts of components/hooks/slices/api). |
+| `scarlet_extract_feature_metadata` | Parse one feature's source with tree-sitter → exports (components, hooks, classes, types, constants) with file paths + line numbers. |
+| `scarlet_extract_invariants` | Surface TODOs, FIXME, magic numbers w/ comments, DON'T/NEVER warnings, "intentional"/"deliberate" callouts. Raw material for the gotchas section. |
+| `scarlet_list_consumers` | Reverse-dep: which features import from this feature. |
+| `scarlet_generate_dep_graph` | Feature → feature dep graph as Mermaid (default) or JSON. Flags deep-imports as tech debt. |
+| `scarlet_build_claude_md` | Generate/refresh a feature's CLAUDE.md. Auto sections regenerate; `<!-- BEGIN MANUAL -->` blocks preserved across runs. |
+| `scarlet_lint_claude_md` | Check a feature's CLAUDE.md for staleness (Public API drift, missing sections, dead file refs). |
+| `scarlet_generate_barrel` | Write `index.{js,ts,tsx}` re-exporting a feature's public surface. Set `write=False` for a dry run. |
 
 ## Decision tree — which tool first?
 
