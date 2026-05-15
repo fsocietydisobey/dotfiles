@@ -170,7 +170,7 @@ Call `mcp__khimaira__session_post_handoff` with:
 
 - `from_session_id=<my-id>`
 - `text=<the composed body from step 3>`
-- `scope_cwd=<absolute path of cwd>`
+- `scope_cwd=<git project root, NOT literal cwd>` — compute via `Bash: git rev-parse --show-toplevel`. If not in a git repo, fall back to `os.getcwd()`. **Why git-root, not literal cwd**: the daemon's handoff matching is "handoff.scope_cwd must be a prefix of new session's cwd" — if the donor was in `/repo/frontend/` and posted with the literal cwd, a recipient opening Claude Code in `/repo/` (parent) wouldn't see the handoff because `/repo/frontend` is not a prefix of `/repo`. Scoping to git-root makes the handoff visible to ANY new session opened anywhere within the repo, which is what users actually expect.
 - `expires_in_hours=24`
 
 24h TTL — transfers are short-lived. If the user doesn't open a new session within a day, the handoff expires and they re-run the command.
@@ -233,7 +233,7 @@ when the recipient signals complete.
 
 ## Edge cases
 
-- **User opens new session in a different cwd**: handoff won't surface (it's cwd-scoped). User must open the new session in the original cwd OR run `/handoffs` manually in the new session pointing at the original cwd.
+- **User opens new session in a different cwd OR a parent dir of the donor's cwd**: as of the git-root-scoping fix in step 4, this works transparently — anywhere within the same git repo is fine. If the new session is opened OUTSIDE the donor's git repo, the handoff still won't surface; user must open in the project tree OR run `/handoffs` manually pointing at the project root.
 
 - **Multiple parallel transfers**: each gets its own handoff id; the new session sees ALL pending handoffs on boot. Disambiguate by name in the handoff body.
 
