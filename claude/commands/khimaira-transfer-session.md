@@ -43,6 +43,8 @@ Fire all of these in one message:
 
 ### 3. Compose the handoff body
 
+**Before composing**: note your own model + thinking-mode budget. The model is visible in your SessionStart hook context block (e.g. `Opus 4.7 (1M context)`); a default thinking-mode (if Joseph set one) is in `~/.claude/settings.json`. This populates the budget step in the template below so the recipient can choose to match the donor's tier or deliberately diverge.
+
 Use this template **verbatim** (fill in the bracketed sections from gathered data + your own knowledge of what's in flight in this conversation):
 
 ```markdown
@@ -72,7 +74,21 @@ Then:
         detail="taking over from <donor-name>"
     )
 
-## Step 2 — read the context (no questions yet)
+## Step 2 — recommended budget for continuity
+
+Donor's budget at handoff time: <DONOR FILLS IN: model from SessionStart hook + any non-default thinking-mode from settings.json, e.g. "Opus 4.7 + ultrathink">
+
+Recipient inherits master role via `chat_transfer_membership` (Phase B v2, single-master invariant per `tasks/khimaira-chat/PHASE-B-V2-ROLES-AUDIT.md`). Default budget per role (see `docs/khimaira-chat.md#token-cost-budgeting` for rationale + when-to-deviate):
+
+| Role     | Model       | Thinking                  |
+|----------|-------------|---------------------------|
+| Master   | Opus 4.7    | ultrathink / think harder |
+| Agent    | Sonnet 4.6  | think (short budget)      |
+| Observer | Haiku 4.5   | default / none            |
+
+You inherit `master` — run Opus 4.7 + ultrathink unless Joseph asks otherwise. When you spawn subordinate agents/observers in your own orchestration rounds, route them to their tier per the table above to avoid the rate-limit blowup that motivated v1.4.
+
+## Step 3 — read the context (no questions yet)
 
 Read this whole handoff carefully. Most of what you need to know is here.
 Ask follow-ups via `session_log_question(target=<donor-id>)` ONLY if
@@ -80,7 +96,7 @@ something is genuinely unclear after you've read the whole block.
 
 Donor is listening but every back-and-forth costs the user a context switch.
 
-## Step 3 — project + cwd
+## Step 4 — project + cwd
 
 Working directory: <cwd>
 
@@ -90,11 +106,11 @@ Recent commits (HEAD ← 10):
 Working tree state:
 <paste output of `git status --short` — note any untracked or modified files>
 
-## Step 4 — recent decisions on this session (last 20)
+## Step 5 — recent decisions on this session (last 20)
 
 <paste session_state's recent_decisions block — each with text + why>
 
-## Step 5 — active work mid-stream
+## Step 6 — active work mid-stream
 
 <DONOR FREE-FORM PROSE — this is the most important section. Write what
 you (the donor) are CURRENTLY in the middle of. Include:
@@ -105,7 +121,7 @@ you (the donor) are CURRENTLY in the middle of. Include:
     (e.g. "the user said X mid-conversation that changed the plan")
 Write this in 3-7 paragraphs. The recipient reads this once; make it count.>
 
-## Step 6 — scheduled wakeups (donor's responsibility, FYI)
+## Step 7 — scheduled wakeups (donor's responsibility, FYI)
 
 <List any ScheduleWakeup the donor has pending. Note: wakeups fire in
 the donor's process, NOT the recipient's. The donor handles residuals.
@@ -116,12 +132,12 @@ Example shape:
   publishes + notify recipient on success
 - ⏰ <other wakeup if any>
 
-## Step 7 — sister sessions active
+## Step 8 — sister sessions active
 
 <paste session_list output, filtered to last-active < 60min, with one-line
 descriptions of what each is doing if known>
 
-## Step 8 — open tasks
+## Step 9 — open tasks
 
 External task sources (Linear / GitHub / JSONL):
 <paste list_tasks output>
@@ -129,11 +145,11 @@ External task sources (Linear / GitHub / JSONL):
 In-tree specs (tasks/ dir):
 <list of tasks/<name>/IMPLEMENTATION.md most-recently modified, with one-line each>
 
-## Step 9 — pending handoffs in this cwd
+## Step 10 — pending handoffs in this cwd
 
 <paste consume_handoffs output, or "none">
 
-## Step 10 — signal transfer complete
+## Step 11 — signal transfer complete
 
 When you've read everything above + are ready to take over (or you've
 asked + received answers to your follow-ups), signal the donor:
@@ -227,7 +243,7 @@ when the recipient signals complete.
 
 - **Multi-round follow-ups are expected.** A complex transfer might involve 3-5 follow-up asks before the recipient is oriented. That's fine — each is one round trip via `session_log_question` + `session_post_answer`.
 
-- **The handoff body is the contract.** Anything not in the handoff is information the recipient might miss. Err on the side of more detail in the "active work mid-stream" prose (step 5 of the template). It's the highest-leverage section.
+- **The handoff body is the contract.** Anything not in the handoff is information the recipient might miss. Err on the side of more detail in the "active work mid-stream" prose (step 6 of the template). It's the highest-leverage section.
 
 - **Composes existing primitives + one Phase B v1.2 addition.** Uses `session_post_handoff` + `session_log_question` + `session_post_answer` + `session_post_notice` + `session_set_name` + `session_set_status` + `session_log_decision` for the session-level handoff; **plus `chat_transfer_membership` (Phase B v1.2) for the chat-membership transfer step that fires after the recipient signals complete**. The chat transfer is the only new primitive — everything else is existing.
 

@@ -69,10 +69,13 @@ For each peer:
 5. Draft full prose, move your task to `done` via `chat_task_update`.
 6. Orchestrator approves or requests changes — rework loops back to `in_progress`.
 
+Recommended budget per role: master = Opus 4.7 + ultrathink, agent = Sonnet 4.6 + think,
+observer = Haiku 4.5 + default. Rationale + when-to-deviate: docs/khimaira-chat.md#token-cost-budgeting.
+
 Cross-pollinate freely — peers should chat about lane boundaries before drafting if anything's ambiguous.
 ```
 
-The orchestrator should edit `{scope}` and add any task-specific context (links, references, constraints) before sending. Don't copy verbatim — the template is a starting point, not a script.
+The orchestrator should edit `{scope}` and add any task-specific context (links, references, constraints) before sending. Don't copy verbatim — the template is a starting point, not a script. The budget summary is a default; the orchestrator can override per-lane if scope warrants (e.g. an Agent on a deep design question may need Opus + think).
 
 ## When NOT to use
 
@@ -84,6 +87,6 @@ The orchestrator should edit `{scope}` and add any task-specific context (links,
 ## Notes
 
 - This command is *bootstrap*. After it runs, the normal chat (`chat_send`, `chat_task_update`, `chat_history`) and task tools drive everything else.
-- The orchestrator role is implicit-from-creator (Phase B v1) — they're the only session that can approve / request changes on per-lane tasks. v2 may lift this to an explicit role field on room meta.
+- The orchestrator role defaults to the chat creator: chats are created with `room.meta.member_roles = {creator_id: "master"}`, and Phase B v2 (commit 29d901e) added explicit role lift via `chat_grant_role(target, "master" | "agent" | "observer" | "critic")` plus admin orphan-unlock via `chat_set_creator` (for chats orphaned by pre-v1.3 `chat_transfer_membership`). Single-master invariant: `chat_grant_role` atomically demotes the prior master when promoting a new one. See `tasks/khimaira-chat/PHASE-B-V2-ROLES-AUDIT.md` for canonical context.
 - Peers with auto-accept allowlists (`chat_auto_accept_from`) skip the handshake entirely; combine the two for friction-free orchestration of trusted agents.
 - The chat persists after work completes. Use `/khimaira-chat-delete` (creator-only) to archive when truly done.
