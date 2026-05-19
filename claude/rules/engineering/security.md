@@ -9,7 +9,8 @@ No secrets in code, ever — env vars or secrets manager only. Validate at every
 - **No secrets in code.** Ever. All secrets come from environment variables or a secrets manager.
 - Commit `.env.example` with required variable names and comments — never commit `.env` files with real values.
 - API keys, database credentials, tokens, and signing keys must never appear in source code, logs, error messages, or frontend bundles.
-- **Never inherit secrets from the machine's shell environment.** Application code must load credentials exclusively from its own `.env` or `.env.local` file. Using `os.getenv()` that silently falls back to the shell env (`~/.bashrc`, `~/.zshrc`) is wrong — it leaks personal machine credentials into the application. Use `python-dotenv` with explicit `.env` loading and validate required keys at startup.
+- **Never inherit secrets from the machine's shell environment.** Application code must load credentials exclusively from its own `.env` or `.env.local` file. Using bare `os.getenv()` is wrong — it silently falls back to `~/.bashrc` / `~/.zshrc` and leaks personal machine credentials into the application.
+- **Correct pattern:** call `load_dotenv(override=True)` before any `os.getenv()` call. `override=True` is mandatory — without it, shell env silently wins over `.env` values and the bug remains even with `load_dotenv()` present. Add `from dotenv import load_dotenv; load_dotenv(override=True)` at the top of any script or at app startup (e.g. `api/main.py`). Validate required keys are present after loading; fail loudly if missing.
 - **Pre-commit hook required for any repo that handles API keys.** Block patterns like `sk-ant-api03-`, `sk-`, `AIza`, `AKIA` outside `.env*` files. Use `detect-secrets` or a grep-based hook.
 
 ## Input validation
