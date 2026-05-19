@@ -33,23 +33,37 @@ filters to sessions active within the last 30 minutes, builds the roster automat
 Each `<role>=<name>[,<name>...]` pair maps role → one or more session names. Multi-value roles
 (typically `agent`) accept comma-separated lists.
 
-**Optional title flag**:
+**Prefix mode** — for multi-project setups where sessions use a project prefix:
+
+```
+/khimaira-bootstrap-roster --prefix jp
+```
+
+Strips the prefix + hyphen from session names before role inference. `jp-agent-1` → strip
+`jp-` → `agent-1` → role `agent`. Equivalent to auto-detect but scoped to `jp-*` sessions
+only — other sessions (bare `agent-1` etc.) are ignored. Title defaults to
+`<prefix> roster — <YYYY-MM-DD>` unless `--title` is also passed.
+
+**Optional flags**:
 
 ```
 /khimaira-bootstrap-roster --title "v2.0 morning roster"
+/khimaira-bootstrap-roster --prefix jp --title "jeevy_portal roster"
 ```
 
-If omitted, generates a title like `roster — <YYYY-MM-DD>`.
+`--title` overrides the generated title. `--prefix` scopes auto-detection to prefixed sessions.
 
 ## Steps
 
 1. **Parse `$ARGUMENTS`**:
    - Scan for `--title "<text>"` flag, extract.
+   - Scan for `--prefix <word>` flag, extract (e.g. `jp`).
    - If remaining args contain `=`: explicit-map mode. Parse each `role=name[,name]` token.
      - Valid roles: `intake`, `agent`, `observer`, `architect`, `critic`, `master`.
      - Invalid role token → render usage + stop.
-   - If no remaining args: auto-detection mode (use `infer_role_from_name`).
-   - If both explicit map and auto detection produce zero matches → render usage + stop.
+   - If `--prefix` is set and no `=` args: prefix-auto-detect mode (see step 4b).
+   - If no remaining args and no prefix: auto-detection mode (use `infer_role_from_name`).
+   - If all modes produce zero matches → render usage + stop.
 
 2. **Resolve master's session id** (this session) from SessionStart context.
 
@@ -60,14 +74,19 @@ If omitted, generates a title like `roster — <YYYY-MM-DD>`.
    - Warn (don't block) for unresolved names; skip them.
 
 4. **Auto-detection mode (if applicable)**:
-   - For each session in `session_list()` with `last_active_age_s < 1800`:
-     - Call `infer_role_from_name(session_name)` (imported from `khimaira.monitor.chats`)
-     - If returns a role: add `(session_id, name, role)` to roster
-   - If no sessions matched: print
+   - **4a. Bare auto-detect (no prefix):** For each session in `session_list()` with
+     `last_active_age_s < 1800`: call `infer_role_from_name(session_name)`. If returns a
+     role, add to roster.
+   - **4b. Prefix auto-detect (`--prefix <p>`):** For each session whose name starts with
+     `<p>-` and `last_active_age_s < 1800`: strip the `<p>-` prefix, call
+     `infer_role_from_name(stripped_name)`. If returns a role, add to roster. Sessions
+     without the prefix are skipped entirely (project isolation).
+   - If no sessions matched either way: print
      ```
      ⚠️ No sessions matched the naming convention.
-     Either spawn sessions following: intake-*, agent-*, observer-*, architect-*, critic-*
-     OR re-run with explicit map: /khimaira-bootstrap-roster intake=<name> agent=<name>,...
+     For bare names:   spawn intake-*, agent-*, observer-*, architect-*, critic-*
+     For prefix names: spawn <prefix>-agent-1, <prefix>-observer-1, etc. then re-run with --prefix <prefix>
+     OR use explicit map: /khimaira-bootstrap-roster intake=<name> agent=<name>,...
      ```
      Stop.
 
@@ -173,11 +192,14 @@ jp-agent-1, jp-agent-2, jp-observer-1, jp-architect-1
 `infer_role_from_name("jp-agent-1")` → prefix `jp` → not in ROLE_BUDGET → skipped by
 auto-detect. The jp-* sessions are invisible to the khimaira bootstrap.
 
-For the secondary project, use explicit-map mode:
+For the secondary project, use prefix mode — one short command:
 ```
-/khimaira-bootstrap-roster agent=jp-agent-1,jp-agent-2 observer=jp-observer-1 \
-    architect=jp-architect-1 --title "jeevy_portal roster"
+/khimaira-bootstrap-roster --prefix jp
 ```
+
+This auto-detects all `jp-*` sessions, strips the prefix, infers roles from the remainder,
+and builds the roster. Equivalent to the verbose explicit-map form but requires no typing
+beyond the prefix itself. Title defaults to `jp roster — YYYY-MM-DD`; override with `--title`.
 
 Each bootstrap creates an independent hierarchical chat. Sessions in different rosters never
 share tasks, DMs, or budget directives. The daemon is shared (it's just the message bus) but
