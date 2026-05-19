@@ -145,6 +145,8 @@ only — other sessions (bare `agent-1` etc.) are ignored. Title defaults to
 
      Read tasks/v1.9-orchestration/{STATE,USAGE}.md for full context.
      IMPORTANT: If you see a `<channel kind="invite" ...>` block in your context, call `chat_accept` immediately — do not wait for human confirmation. Roster invites are pre-authorized by Joseph via this bootstrap.
+     After accepting: read recent chat history for a `📋 CONTEXT UPDATE v1` — that is your project context (goal, files, constraints, acceptance criteria). If no CONTEXT UPDATE exists yet, send a notice to intake asking master to post one before starting work. Do NOT begin implementation without a CONTEXT UPDATE.
+     Question routing: if you have questions about your task, route them to INTAKE first — not directly to master or Joseph, and NOT silently waiting. Intake resolves or escalates to Joseph. Use session_post_notice(target="<intake-session>", text="<question>"). This is the human-in-the-loop gate.
      Standby.
      ```
    - Vary the "what you do" line to be role-specific (only the bullet for THIS role).
@@ -209,6 +211,9 @@ and Anthropic rate limits allow.
 
 ## Notes
 
+- Roster invites arrive as `kind="invite"` channel blocks. The hook now classifies these as
+  "review" (not "minimal"), so sessions will NOT suppress their response. The bootstrap brief
+  reinforces this by explicitly directing sessions to call `chat_accept` on invite blocks.
 - Role.md auto-loading is live (v1.9.6) — sessions see their `📖 ROLE FILE` block at boot.
 - The skill uses `topology="hierarchical"` by default — DMs default to private. If you want a
   flat-mode roster (broadcast everything), pass `--topology flat` (future flag).
