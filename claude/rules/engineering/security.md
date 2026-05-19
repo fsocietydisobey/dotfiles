@@ -9,6 +9,8 @@ No secrets in code, ever — env vars or secrets manager only. Validate at every
 - **No secrets in code.** Ever. All secrets come from environment variables or a secrets manager.
 - Commit `.env.example` with required variable names and comments — never commit `.env` files with real values.
 - API keys, database credentials, tokens, and signing keys must never appear in source code, logs, error messages, or frontend bundles.
+- **Never inherit secrets from the machine's shell environment.** Application code must load credentials exclusively from its own `.env` or `.env.local` file. Using `os.getenv()` that silently falls back to the shell env (`~/.bashrc`, `~/.zshrc`) is wrong — it leaks personal machine credentials into the application. Use `python-dotenv` with explicit `.env` loading and validate required keys at startup.
+- **Pre-commit hook required for any repo that handles API keys.** Block patterns like `sk-ant-api03-`, `sk-`, `AIza`, `AKIA` outside `.env*` files. Use `detect-secrets` or a grep-based hook.
 
 ## Input validation
 
