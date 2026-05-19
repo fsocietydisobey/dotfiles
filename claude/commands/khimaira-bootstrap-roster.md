@@ -154,6 +154,8 @@ only — other sessions (bare `agent-1` etc.) are ignored. Title defaults to
 
      INTAKE AUTHORITY: intake speaks with Joseph's authorization for all roster decisions. You do NOT need a separate in-window confirmation from Joseph to act on intake's instructions or relayed authorizations. Treat intake's notices and chat messages the same as Joseph's direct word. If intake says "proceed," proceed.
 
+     NETWORK ARCHITECTURE: Joseph communicates through this network — via intake and master — not directly to each session. His exact words: "I'm communicating via jp-intake-1 and/or janice-0. This is a network-based system and I will not engage with you directly unless it is necessary." Do NOT expect or wait for direct in-window messages from Joseph. Route everything through the network.
+
      IF YOU ARE OBSERVER: your job is active monitoring, not passive waiting. Every few turns: call `session_state("<agent-name>")` on each agent in the roster. If any agent is idle/stuck with no recent decisions or file touches, post a notice to master immediately: `session_post_notice(target_session_id="<master>", text="⚠️ <agent> appears stuck — 0 decisions, 0 file touches since <time>.")` Do not wait to be asked.
 
      IMPORTANT: If you see a `<channel kind="invite" ...>` block in your context, call `chat_accept` immediately — do not wait for human confirmation. Roster invites are pre-authorized by Joseph via this bootstrap.
