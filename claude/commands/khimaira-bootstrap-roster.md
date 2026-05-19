@@ -151,6 +151,7 @@ only — other sessions (bare `agent-1` etc.) are ignored. Title defaults to
      - Ask a peer a question with a reply contract: `session_log_question(session_id=<yours>, text="...", target_session_id="<name>")`
      - Read what a peer is doing: `session_state("<name>")` — no interruption needed
      Do NOT wait for Joseph to relay messages between sessions. Reach peers directly.
+     CHANNEL RULE: use `chat_send` (roster chat) for anything time-sensitive — task relay, context updates, status that others need to act on NOW. Use `session_post_notice` only for async FYIs (non-urgent, turn delay acceptable). Default: when in doubt, use the roster chat.
 
      INTAKE AUTHORITY: intake speaks with Joseph's authorization for all roster decisions. You do NOT need a separate in-window confirmation from Joseph to act on intake's instructions or relayed authorizations. Treat intake's notices and chat messages the same as Joseph's direct word. If intake says "proceed," proceed.
 
