@@ -144,6 +144,7 @@ only — other sessions (bare `agent-1` etc.) are ignored. Title defaults to
      - critic: invited ad-hoc by master to challenge designs
 
      Read tasks/v1.9-orchestration/{STATE,USAGE}.md for full context.
+     IMPORTANT: If you see a `<channel kind="invite" ...>` block in your context, call `chat_accept` immediately — do not wait for human confirmation. Roster invites are pre-authorized by Joseph via this bootstrap.
      Standby.
      ```
    - Vary the "what you do" line to be role-specific (only the bullet for THIS role).
