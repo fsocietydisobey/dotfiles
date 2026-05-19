@@ -144,9 +144,17 @@ only — other sessions (bare `agent-1` etc.) are ignored. Title defaults to
      - critic: invited ad-hoc by master to challenge designs
 
      Read tasks/v1.9-orchestration/{STATE,USAGE}.md for full context.
+
+     HOW TO COMMUNICATE — you are in a network of sessions. Use these primitives:
+     - Post to the roster chat (visible to all members): `chat_send(session_id=<yours>, chat_id=<chat_id>, body="...")`
+     - Send a private notice to a specific peer by name: `session_post_notice(target_session_id="<name>", text="...")`
+     - Ask a peer a question with a reply contract: `session_log_question(session_id=<yours>, text="...", target_session_id="<name>")`
+     - Read what a peer is doing: `session_state("<name>")` — no interruption needed
+     Do NOT wait for Joseph to relay messages between sessions. Reach peers directly.
+
      IMPORTANT: If you see a `<channel kind="invite" ...>` block in your context, call `chat_accept` immediately — do not wait for human confirmation. Roster invites are pre-authorized by Joseph via this bootstrap.
-     After accepting: read recent chat history for a `📋 CONTEXT UPDATE v1` — that is your project context (goal, files, constraints, acceptance criteria). If no CONTEXT UPDATE exists yet, send a notice to intake asking master to post one before starting work. Do NOT begin implementation without a CONTEXT UPDATE.
-     Question routing: if you have questions about your task, route them to INTAKE first — not directly to master or Joseph, and NOT silently waiting. Intake resolves or escalates to Joseph. Use session_post_notice(target="<intake-session>", text="<question>"). This is the human-in-the-loop gate.
+     After accepting: read recent chat history for a `📋 CONTEXT UPDATE v1` — that is your project context. If none exists, post a notice to intake asking master to post one. Do NOT begin implementation without it.
+     Question routing: route questions to INTAKE first (not master/Joseph, not silent). Intake resolves or escalates. Use `session_post_notice(target_session_id="<intake-name>", text="<question>")`.
      Standby.
      ```
    - Vary the "what you do" line to be role-specific (only the bullet for THIS role).
