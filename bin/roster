@@ -422,6 +422,17 @@ do_hub_layout() {
         balanced_col "$id_obs" "${agent_entries[@]}"
     fi
 
+    # 7. Equalize column widths.
+    # After the 3 vsplits, widths are: left=50%, center=25%, right=25%.
+    # Target: ~33% each. Shrink left by 1/6 of screen width, grow right by 1/12.
+    # COLUMNS is captured before any splits (full-screen launch terminal width).
+    local shrink=$(( COLUMNS / 6 ))
+    local grow=$(( COLUMNS / 12 ))
+    [[ $shrink -gt 0 ]] && kitty @ "${KITTY_TO[@]}" resize-window \
+        --match "id:$id_left_anchor" --axis horizontal --increment "-$shrink" 2>/dev/null || true
+    [[ -n "$id_obs" && $grow -gt 0 ]] && kitty @ "${KITTY_TO[@]}" resize-window \
+        --match "id:$id_obs" --axis horizontal --increment "$grow" 2>/dev/null || true
+
     focus "$id_intake"
 }
 
