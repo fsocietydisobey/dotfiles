@@ -424,12 +424,16 @@ do_hub_layout() {
         balanced_col "$id_obs" "${agent_entries[@]}"
     fi
 
-    # 7. Equalize column widths: shrink A until A = C.
+    # 7. Close the launch terminal BEFORE measuring/resizing — it's the 11th
+    # window in the layout and skews measurements + competes for focus.
+    kitty @ "${KITTY_TO[@]}" close-window --match "id:${KITTY_WINDOW_ID}" 2>/dev/null || true
+    sleep 0.5  # let kitty reflow after close before measuring
+
+    # 8. Equalize column widths: shrink A until A = C.
     # `resize-window` returns "Could not resize" in splits layout — use
     # `action resize_window narrower` which works (adjusts 1 cell per call).
     # A is the leftmost column and always starts widest (50%). Narrowing A
     # moves its right divider left, giving the extra width to B (center).
-    sleep 0.3
     local ls_json w_a w_c delta_a
     ls_json=$(kitty @ "${KITTY_TO[@]}" ls 2>/dev/null || echo "[]")
 
@@ -516,6 +520,9 @@ fi
 
 echo ""
 echo "Done. Run /khimaira-bootstrap-roster${PREFIX:+ --prefix ${PREFIX%%-}} inside $MASTER to wire the chat."
-echo "Closing this launch terminal in 2s..."
-sleep 2
-kitty @ "${KITTY_TO[@]}" close-window --match "id:${KITTY_WINDOW_ID}" 2>/dev/null || true
+# For non-hub layouts, close the launch terminal now. Hub layout closes it earlier (before resize).
+if [[ "$OPT_LAYOUT" != "hub" ]]; then
+    echo "Closing this launch terminal in 2s..."
+    sleep 2
+    kitty @ "${KITTY_TO[@]}" close-window --match "id:${KITTY_WINDOW_ID}" 2>/dev/null || true
+fi
