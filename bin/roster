@@ -168,7 +168,7 @@ case "$OPT_LAYOUT" in
     *)          kitty @ "${KITTY_TO[@]}" goto-layout "$OPT_LAYOUT" 2>/dev/null || true ;;
 esac
 
-# Launch one window into the splits layout
+# Launch one window; echoes its kitty window ID (integer)
 do_launch() {
     local name="$1" model="$2" effort="$3" flag="$4"
     shift 4
@@ -178,10 +178,11 @@ do_launch() {
         --cwd="$CWD" \
         "$@" \
         -- bash -ic "claude-chat $flag $name --model $model --effort $effort; exec bash"
+    # kitty @ launch prints the window-id to stdout — captured by caller
 }
 
-# Focus by window title; sleep gives kitty time to settle before next split
-focus() { kitty @ "${KITTY_TO[@]}" focus-window --match "title:$1" 2>/dev/null || true; sleep 0.3; }
+# Focus by kitty window ID (unique, no race on title); sleep lets kitty settle
+focus() { kitty @ "${KITTY_TO[@]}" focus-window --match "id:$1" 2>/dev/null || true; sleep 0.3; }
 
 # --- 3-column splits layout ---
 # Col A (left):   intake (top) / master (bottom)
@@ -236,64 +237,62 @@ do_3col_layout() {
 
     local intake_name arch_name obs_name col_b_prev_name col_c_prev_name
 
+    local id_intake id_arch id_obs id_master id_col_b_anchor
+
     # 1. Launch intake → fills screen (Col A top)
     IFS=: read -r name model effort sflag <<< "$e_intake"
     printf "  launching %-22s %s/%s\n" "$name" "$model" "$effort"
-    do_launch "$name" "$model" "$effort" "$sflag" > /dev/null
-    intake_name="$name"
+    id_intake=$(do_launch "$name" "$model" "$effort" "$sflag")
 
     # 2. vsplit intake → architect starts Col B
-    arch_name=""
+    id_arch=""
     if [[ -n "$e_arch" ]]; then
-        focus "$intake_name"
+        focus "$id_intake"
         IFS=: read -r name model effort sflag <<< "$e_arch"
         printf "  launching %-22s %s/%s\n" "$name" "$model" "$effort"
-        do_launch "$name" "$model" "$effort" "$sflag" --location=vsplit > /dev/null
-        arch_name="$name"
+        id_arch=$(do_launch "$name" "$model" "$effort" "$sflag" --location=vsplit)
     fi
 
     # 3. vsplit Col B anchor → observer starts Col C
-    obs_name=""
-    local col_b_anchor_name="${arch_name:-$intake_name}"
+    id_obs=""
+    id_col_b_anchor="${id_arch:-$id_intake}"
     if [[ -n "$e_obs" ]]; then
-        focus "$col_b_anchor_name"
+        focus "$id_col_b_anchor"
         IFS=: read -r name model effort sflag <<< "$e_obs"
         printf "  launching %-22s %s/%s\n" "$name" "$model" "$effort"
-        do_launch "$name" "$model" "$effort" "$sflag" --location=vsplit > /dev/null
-        obs_name="$name"
+        id_obs=$(do_launch "$name" "$model" "$effort" "$sflag" --location=vsplit)
     fi
 
     # 4. hsplit intake → master below (Col A bottom)
+    id_master=""
     if [[ -n "$e_master" ]]; then
-        focus "$intake_name"
+        focus "$id_intake"
         IFS=: read -r name model effort sflag <<< "$e_master"
         printf "  launching %-22s %s/%s\n" "$name" "$model" "$effort"
-        do_launch "$name" "$model" "$effort" "$sflag" --location=hsplit > /dev/null
+        id_master=$(do_launch "$name" "$model" "$effort" "$sflag" --location=hsplit)
     fi
 
     # 5. Stack Col B: analyst / verifier / critic below architect
-    col_b_prev_name="$arch_name"
+    local id_col_b_prev="$id_arch"
     for e in "$e_anal" "$e_verif" "$e_crit"; do
-        [[ -z "$e" || -z "$col_b_prev_name" ]] && continue
-        focus "$col_b_prev_name"
+        [[ -z "$e" || -z "$id_col_b_prev" ]] && continue
+        focus "$id_col_b_prev"
         IFS=: read -r name model effort sflag <<< "$e"
         printf "  launching %-22s %s/%s\n" "$name" "$model" "$effort"
-        do_launch "$name" "$model" "$effort" "$sflag" --location=hsplit > /dev/null
-        col_b_prev_name="$name"
+        id_col_b_prev=$(do_launch "$name" "$model" "$effort" "$sflag" --location=hsplit)
     done
 
     # 6. Stack Col C: agents below observer
-    col_c_prev_name="$obs_name"
+    local id_col_c_prev="$id_obs"
     for entry in "${agent_entries[@]}"; do
-        [[ -z "$col_c_prev_name" ]] && break
-        focus "$col_c_prev_name"
+        [[ -z "$id_col_c_prev" ]] && break
+        focus "$id_col_c_prev"
         IFS=: read -r name model effort sflag <<< "$entry"
         printf "  launching %-22s %s/%s\n" "$name" "$model" "$effort"
-        do_launch "$name" "$model" "$effort" "$sflag" --location=hsplit > /dev/null
-        col_c_prev_name="$name"
+        id_col_c_prev=$(do_launch "$name" "$model" "$effort" "$sflag" --location=hsplit)
     done
 
-    focus "$intake_name"
+    focus "$id_intake"
 }
 
 # --- hub layout ---
@@ -350,63 +349,60 @@ do_hub_layout() {
         [[ -n "$e" ]] && left_sessions+=("$e")
     done
 
-    # 1. Launch first left-col session (fills screen — left col anchor)
-    local left_anchor_name=""
+    local id_left_anchor id_intake id_obs id_left_prev id_right_prev
+
+    # 1. Launch first left-col session (fills screen)
+    id_left_anchor=""
     if [[ ${#left_sessions[@]} -gt 0 ]]; then
         IFS=: read -r _name _model _effort _sflag <<< "${left_sessions[0]}"
         printf "  launching %-22s %s/%s\n" "$_name" "$_model" "$_effort"
-        do_launch "$_name" "$_model" "$_effort" "$_sflag" > /dev/null
-        left_anchor_name="$_name"
+        id_left_anchor=$(do_launch "$_name" "$_model" "$_effort" "$_sflag")
     fi
 
     # 2. vsplit left anchor → intake (center col)
-    local intake_name=""
     IFS=: read -r _name _model _effort _sflag <<< "$e_intake"
-    focus "$left_anchor_name"
+    focus "$id_left_anchor"
     printf "  launching %-22s %s/%s\n" "$_name" "$_model" "$_effort"
-    do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=vsplit > /dev/null
-    intake_name="$_name"
+    id_intake=$(do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=vsplit)
 
     # 3. vsplit intake → observer (right col anchor)
-    local obs_name=""
+    id_obs=""
     if [[ -n "$e_obs" ]]; then
         IFS=: read -r _name _model _effort _sflag <<< "$e_obs"
-        focus "$intake_name"
+        focus "$id_intake"
         printf "  launching %-22s %s/%s\n" "$_name" "$_model" "$_effort"
-        do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=vsplit > /dev/null
-        obs_name="$_name"
+        id_obs=$(do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=vsplit)
     fi
 
     # 4. hsplit intake → master (below intake, equal size)
     if [[ -n "$e_master" ]]; then
         IFS=: read -r _name _model _effort _sflag <<< "$e_master"
-        focus "$intake_name"
+        focus "$id_intake"
         printf "  launching %-22s %s/%s\n" "$_name" "$_model" "$_effort"
         do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=hsplit > /dev/null
     fi
 
-    # 5. Stack remaining left col sessions below left anchor
-    local left_prev_name="$left_anchor_name"
+    # 5. Stack remaining left col below left anchor
+    id_left_prev="$id_left_anchor"
     for entry in "${left_sessions[@]:1}"; do
+        [[ -z "$id_left_prev" ]] && break
         IFS=: read -r _name _model _effort _sflag <<< "$entry"
-        focus "$left_prev_name"
+        focus "$id_left_prev"
         printf "  launching %-22s %s/%s\n" "$_name" "$_model" "$_effort"
-        do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=hsplit > /dev/null
-        left_prev_name="$_name"
+        id_left_prev=$(do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=hsplit)
     done
 
-    # 6. Stack agents below observer in right col
-    local right_prev_name="$obs_name"
+    # 6. Stack agents below observer
+    id_right_prev="$id_obs"
     for entry in "${agent_entries[@]}"; do
-        [[ -z "$right_prev_name" ]] && break
+        [[ -z "$id_right_prev" ]] && break
         IFS=: read -r _name _model _effort _sflag <<< "$entry"
-        focus "$right_prev_name"
+        focus "$id_right_prev"
         printf "  launching %-22s %s/%s\n" "$_name" "$_model" "$_effort"
-        do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=hsplit > /dev/null
-        right_prev_name="$_name"
+        id_right_prev=$(do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=hsplit)
     done
 
-    focus "$intake_name"
+    focus "$id_intake"
 }
 
 # --- sequential layout (for --order or non-splits layouts) ---
