@@ -382,25 +382,45 @@ do_hub_layout() {
         do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=hsplit > /dev/null
     fi
 
-    # 5. Stack remaining left col below left anchor
-    id_left_prev="$id_left_anchor"
-    for entry in "${left_sessions[@]:1}"; do
-        [[ -z "$id_left_prev" ]] && break
-        IFS=: read -r _name _model _effort _sflag <<< "$entry"
-        focus "$id_left_prev"
+    # Balanced column split: for N panes, split the anchor in half first,
+    # then each half — gives equal heights vs linear splitting which makes
+    # the first pane 50%, second 25%, etc.
+    # balanced_col <anchor_id> entry1 entry2 ...
+    balanced_col() {
+        local anchor="$1"; shift
+        local entries=("$@")
+        local n=${#entries[@]}
+        [[ $n -eq 0 ]] && return
+        if [[ $n -eq 1 ]]; then
+            focus "$anchor"
+            IFS=: read -r _name _model _effort _sflag <<< "${entries[0]}"
+            printf "  launching %-22s %s/%s\n" "$_name" "$_model" "$_effort"
+            do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=hsplit > /dev/null
+            return
+        fi
+        # Split anchor in half: top = anchor (first half of entries), bottom = new window
+        local mid=$(( n / 2 ))
+        local bottom_entries=("${entries[@]:$mid}")
+        local top_entries=("${entries[@]:0:$mid}")
+        # Launch the bottom group's first session
+        focus "$anchor"
+        IFS=: read -r _name _model _effort _sflag <<< "${bottom_entries[0]}"
         printf "  launching %-22s %s/%s\n" "$_name" "$_model" "$_effort"
-        id_left_prev=$(do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=hsplit)
-    done
+        local bottom_id
+        bottom_id=$(do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=hsplit)
+        # Recurse into top half (remaining top entries below anchor)
+        balanced_col "$anchor" "${top_entries[@]}"
+        # Recurse into bottom half (remaining bottom entries below bottom_id)
+        balanced_col "$bottom_id" "${bottom_entries[@]:1}"
+    }
 
-    # 6. Stack agents below observer
-    id_right_prev="$id_obs"
-    for entry in "${agent_entries[@]}"; do
-        [[ -z "$id_right_prev" ]] && break
-        IFS=: read -r _name _model _effort _sflag <<< "$entry"
-        focus "$id_right_prev"
-        printf "  launching %-22s %s/%s\n" "$_name" "$_model" "$_effort"
-        id_right_prev=$(do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=hsplit)
-    done
+    # 5. Balanced split: left col (analyst is anchor, then verifier/critic/architect)
+    balanced_col "$id_left_anchor" "${left_sessions[@]:1}"
+
+    # 6. Balanced split: right col (observer is anchor, then agents)
+    if [[ -n "$id_obs" ]]; then
+        balanced_col "$id_obs" "${agent_entries[@]}"
+    fi
 
     focus "$id_intake"
 }
