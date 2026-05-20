@@ -451,12 +451,16 @@ print(0)" 2>/dev/null || echo 0
     delta_a=$(( w_a - w_c ))
 
     if [[ $delta_a -gt 0 && -n "$left_anchor_title" ]]; then
-        # Shrink A (left col) by delta_a cells using title match — more reliable than ID.
-        # `narrower` on the leftmost window moves its right divider left → A shrinks, B grows.
+        # Focus analyst explicitly, then run narrower WITHOUT --match so it applies
+        # to the truly focused window. `action --match` targets the tab context but
+        # resize_window still runs on the active window in that tab, not the matched one.
+        kitty @ "${KITTY_TO[@]}" focus-window --match "title:$left_anchor_title" 2>/dev/null || true
+        sleep 0.3
         for (( i=0; i<delta_a; i++ )); do
-            kitty @ "${KITTY_TO[@]}" action \
-                --match "title:$left_anchor_title" resize_window narrower 2>/dev/null || break
+            kitty @ "${KITTY_TO[@]}" action resize_window narrower 2>/dev/null || break
         done
+        # Return focus to intake when done
+        focus "$id_intake"
     fi
 
     focus "$id_intake"
