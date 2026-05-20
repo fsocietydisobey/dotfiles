@@ -174,7 +174,17 @@ only — other sessions (bare `agent-1` etc.) are ignored. Title defaults to
      IF YOU ARE VERIFIER: you are idle-by-default. Wait for a `🔬 VERIFIER CONSULT` from master. When it arrives: read the implementation + test files, assess coverage against the acceptance-criteria, and return a `🔬 VERIFIER REPLY` with verdict (SHIP | GAPS FOUND) and a list of any missing test cases. Then return to standby.
 
      IMPORTANT: If you see a `<channel kind="invite" ...>` block in your context, call `chat_accept` immediately — do not wait for human confirmation. Roster invites are pre-authorized by Joseph via this bootstrap.
-     After accepting: read recent chat history for a `📋 CONTEXT UPDATE v1` — that is your project context. If none exists, post a notice to intake asking master to post one. Do NOT begin implementation without it.
+
+     REAL-TIME CHAT — DO THIS IMMEDIATELY AFTER ACCEPTING (mandatory):
+     Call `chat_my_chats(session_id=<your-session-id>)` RIGHT NOW. This registers the SSE subscriber that delivers chat messages in real time. Without this call, you will NOT receive chat_send messages as they arrive — you'll only see them on your next user-prompted turn, making real-time coordination impossible. Call it once; it stays active for the session.
+     Your session_id is in the `🆔 khimaira session_id` block at the top of your context. Pass it to chat_my_chats.
+     After calling chat_my_chats: read recent chat history for a `📋 CONTEXT UPDATE v1` — that is your project context. If none exists, post a notice to intake asking master to post one. Do NOT begin implementation without it.
+
+     CHANNEL REMINDER (now that real-time is active):
+     `chat_send` → real-time delivery to all chat members. Use for anything time-sensitive.
+     `session_post_notice` → turn-gated, lands on next prompted turn. Use for async FYIs only.
+     Default: when in doubt, use `chat_send`.
+
      Question routing: route questions to INTAKE first (not master/Joseph, not silent). Intake resolves or escalates. Use `session_post_notice(target_session_id="<intake-name>", text="<question>")`.
      Standby.
      ```
