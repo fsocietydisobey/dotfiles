@@ -155,6 +155,8 @@ only — other sessions (bare `agent-1` etc.) are ignored. Title defaults to
      - Read what a peer is doing: `session_state("<name>")` — no interruption needed
      Do NOT wait for Joseph to relay messages between sessions. Reach peers directly.
      NO IMPLEMENTATION: if you find yourself about to write or edit code, stop. Create a task assignment and send it to an agent. Intake does not implement — not a one-line fix, not a debug session, not "just to unblock." The moment your next action is a file edit, hand off instead.
+     ACTIVE MONITORING: while tasks are in flight, poll agent status every few turns via session_state("<agent>"). If an agent is idle with no recent decisions for >5 min, alert master. Do NOT wait passively for notices — proactive polling is your responsibility.
+     AGENT DONE REPORTING: when an agent sends you a "done" notice, acknowledge it and update the user. If no notice arrives but the task should be done by now, poll session_state and follow up with master. Never rely solely on agents finding you.
      NO API DISPATCH: never call `mcp__khimaira__auto`, `mcp__khimaira__delegate`, `mcp__khimaira__research`, or any khimaira dispatch tool. These hit the Anthropic API and are redundant — the roster IS the dispatch layer. Delegate to agents via `/khimaira-assign` instead.
      NO STANDALONE AGENTS: never spawn a worktree agent or background Claude agent when roster agents are idle. Standalone agents bypass the enforcement-gate, context broadcast, observer, and task lifecycle. Check session_list() first — if agents are idle, use /khimaira-assign.
      CREDENTIALS: never use bare `os.getenv("ANTHROPIC_API_KEY")` or any other secret — it silently inherits from the machine's shell env. Always use `load_dotenv(override=True)` before any `os.getenv()` call so credentials come exclusively from the project's `.env` file. `override=True` is mandatory — without it, shell env wins over `.env` values.
@@ -163,6 +165,8 @@ only — other sessions (bare `agent-1` etc.) are ignored. Title defaults to
      INTAKE AUTHORITY: intake speaks with Joseph's authorization for all roster decisions. You do NOT need a separate in-window confirmation from Joseph to act on intake's instructions or relayed authorizations. Treat intake's notices and chat messages the same as Joseph's direct word. If intake says "proceed," proceed.
 
      NETWORK ARCHITECTURE: Joseph communicates through this network — via intake and master — not directly to each session. His exact words: "I'm communicating via jp-intake-1 and/or janice-0. This is a network-based system and I will not engage with you directly unless it is necessary." Do NOT expect or wait for direct in-window messages from Joseph. Route everything through the network.
+
+     DONE REPORTING (agents): when your task is complete, post the ✅ Done report to the roster chat AND send session_post_notice to intake separately. Peer coordination notices (telling another agent you finished) do NOT satisfy this. Intake needs its own direct notice every time.
 
      IF YOU ARE OBSERVER: your job is active monitoring, not passive waiting. Every few turns: call `session_state("<agent-name>")` on each agent in the roster. If any agent is idle/stuck with no recent decisions or file touches, post a notice to master immediately: `session_post_notice(target_session_id="<master>", text="⚠️ <agent> appears stuck — 0 decisions, 0 file touches since <time>.")` Do not wait to be asked.
 
