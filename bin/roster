@@ -422,22 +422,55 @@ do_hub_layout() {
         balanced_col "$id_obs" "${agent_entries[@]}"
     fi
 
-    # 7. Adjust column widths.
-    # After 3 vsplits: A=50%, B=25%, C=25%. Target: A=C=28%, B=44% (center wider).
-    #
-    # Step 1: shrink A by 22% → A=28%, B+C subtree grows to 72% → B=36%, C=36%
-    # Step 2: shrink C by 8% → C=28%, B gains that → B=44%
-    #
-    # Binary tree: A and (B,C) are siblings; B and C are siblings.
-    # Resizing A affects B+C together. Resizing C affects B only.
-    local shrink_a=$(( COLUMNS * 22 / 100 ))
-    local shrink_c=$(( COLUMNS * 8 / 100 ))
-    [[ -n "$id_left_anchor" && $shrink_a -gt 0 ]] && \
-        kitty @ "${KITTY_TO[@]}" resize-window \
-            --match "id:$id_left_anchor" --axis horizontal --increment "-$shrink_a" 2>/dev/null || true
-    [[ -n "$id_obs" && $shrink_c -gt 0 ]] && \
-        kitty @ "${KITTY_TO[@]}" resize-window \
-            --match "id:$id_obs" --axis horizontal --increment "-$shrink_c" 2>/dev/null || true
+    # 7. Adjust column widths using actual measured widths.
+    # Target: A=C=28%, B=44% of total. Binary tree: A and (B,C) are siblings; B,C are siblings.
+    # Resizing A affects B+C together. Resizing C (right) affects B only.
+    sleep 0.2  # let kitty settle before measuring
+    local ls_json
+    ls_json=$(kitty @ "${KITTY_TO[@]}" ls 2>/dev/null || echo "[]")
+
+    get_cols() {
+        local win_id="$1"
+        echo "$ls_json" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+for os_win in data:
+    for tab in os_win.get('tabs', []):
+        for w in tab.get('windows', []):
+            if w['id'] == $win_id:
+                print(w.get('columns', 0))
+                sys.exit()
+print(0)
+" 2>/dev/null || echo 0
+    }
+
+    local w_a w_b w_c total target_a target_c delta_a delta_c
+    w_a=$(get_cols "$id_left_anchor")
+    w_b=$(get_cols "$id_intake")
+    w_c=$(get_cols "$id_obs")
+    total=$(( w_a + w_b + w_c ))
+
+    if [[ $total -gt 0 ]]; then
+        # target_a = target_c = 28% of total; B gets the rest
+        target_a=$(( total * 28 / 100 ))
+        target_c=$(( total * 28 / 100 ))
+
+        # Shrink A: delta_a = how much A needs to lose
+        delta_a=$(( w_a - target_a ))
+        if [[ $delta_a -gt 0 ]]; then
+            kitty @ "${KITTY_TO[@]}" resize-window \
+                --match "id:$id_left_anchor" --axis horizontal --increment "-$delta_a" 2>/dev/null || true
+            sleep 0.2
+        fi
+
+        # After A shrinks, C has grown by ~delta_a/2. Measure new C and shrink to target.
+        w_c=$(get_cols "$id_obs")
+        delta_c=$(( w_c - target_c ))
+        if [[ $delta_c -gt 0 ]]; then
+            kitty @ "${KITTY_TO[@]}" resize-window \
+                --match "id:$id_obs" --axis horizontal --increment "-$delta_c" 2>/dev/null || true
+        fi
+    fi
 
     focus "$id_intake"
 }
