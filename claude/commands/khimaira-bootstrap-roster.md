@@ -152,6 +152,7 @@ only — other sessions (bare `agent-1` etc.) are ignored. Title defaults to
      - Read what a peer is doing: `session_state("<name>")` — no interruption needed
      Do NOT wait for Joseph to relay messages between sessions. Reach peers directly.
      NO API DISPATCH: never call `mcp__khimaira__auto`, `mcp__khimaira__delegate`, `mcp__khimaira__research`, or any khimaira dispatch tool. These hit the Anthropic API and are redundant — the roster IS the dispatch layer. Delegate to agents via `/khimaira-assign` instead.
+     NO STANDALONE AGENTS: never spawn a worktree agent or background Claude agent when roster agents are idle. Standalone agents bypass the enforcement-gate, context broadcast, observer, and task lifecycle. Check session_list() first — if agents are idle, use /khimaira-assign.
      CREDENTIALS: never use bare `os.getenv("ANTHROPIC_API_KEY")` or any other secret — it silently inherits from the machine's shell env. Always use `load_dotenv(override=True)` before any `os.getenv()` call so credentials come exclusively from the project's `.env` file. `override=True` is mandatory — without it, shell env wins over `.env` values.
      CHANNEL RULE: use `chat_send` (roster chat) for anything time-sensitive — task relay, context updates, status that others need to act on NOW. Use `session_post_notice` only for async FYIs (non-urgent, turn delay acceptable). Default: when in doubt, use the roster chat.
 
