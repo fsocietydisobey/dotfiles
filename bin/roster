@@ -353,10 +353,12 @@ do_hub_layout() {
 
     # 1. Launch first left-col session (fills screen)
     id_left_anchor=""
+    local left_anchor_title=""
     if [[ ${#left_sessions[@]} -gt 0 ]]; then
         IFS=: read -r _name _model _effort _sflag <<< "${left_sessions[0]}"
         printf "  launching %-22s %s/%s\n" "$_name" "$_model" "$_effort"
         id_left_anchor=$(do_launch "$_name" "$_model" "$_effort" "$_sflag")
+        left_anchor_title="$_name"  # store title for reliable equalization matching
     fi
 
     # 2. vsplit left anchor → intake (center col)
@@ -448,11 +450,12 @@ print(0)" 2>/dev/null || echo 0
     w_c=$(_get_cols "$id_obs")
     delta_a=$(( w_a - w_c ))
 
-    if [[ $delta_a -gt 0 && -n "$id_left_anchor" ]]; then
-        # Shrink A by delta_a cells, 1 cell at a time via action API
+    if [[ $delta_a -gt 0 && -n "$left_anchor_title" ]]; then
+        # Shrink A (left col) by delta_a cells using title match — more reliable than ID.
+        # `narrower` on the leftmost window moves its right divider left → A shrinks, B grows.
         for (( i=0; i<delta_a; i++ )); do
             kitty @ "${KITTY_TO[@]}" action \
-                --match "id:$id_left_anchor" resize_window narrower 2>/dev/null || break
+                --match "title:$left_anchor_title" resize_window narrower 2>/dev/null || break
         done
     fi
 
