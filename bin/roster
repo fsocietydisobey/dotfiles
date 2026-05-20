@@ -1,0 +1,464 @@
+#!/usr/bin/env bash
+# roster — launch a khimaira multi-agent roster as splits in the current kitty tab
+#
+# Layouts:
+#   splits (default) — 3 columns:
+#     Col A (left):   intake / master
+#     Col B (middle): architect / analyst / verifier / critic  (4 stacked)
+#     Col C (right):  observer / agent-1 / agent-2 / agent-3  (4 stacked)
+#
+#   hub — solar system: master full-height in center, others orbit:
+#     Col A (left):   intake / analyst / architect / verifier / critic
+#     Col B (center): MASTER (undivided — the sun)
+#     Col C (right):  observer / agent-1 / agent-2 / agent-3
+#
+#   grid | tall | fat | horizontal | vertical — kitty native layouts (sequential order)
+#
+# Usage:
+#   roster jp resume
+#   roster jp resume --layout hub                  # solar-system layout
+#   roster jp resume --layout grid                 # equal kitty grid
+#   roster jp resume --analyst --verifier          # force-add if not found
+#   roster jp resume --order "intake,master,..."   # manual sequential order
+#
+# Flags:
+#   --prefix <p>        session name prefix
+#   --master <name>     master session name
+#   --intake <name>     intake session name
+#   --agents <n>        number of agents (default: 3)
+#   --analyst           include analyst (start fresh in resume if needed)
+#   --no-analyst        exclude analyst
+#   --verifier          include verifier (start fresh in resume if needed)
+#   --no-verifier       exclude verifier
+#   --no-observer       exclude observer
+#   --no-architect      exclude architect
+#   --no-critic         exclude critic
+#   --layout <name>     splits (default) | hub | grid | tall | fat | horizontal | vertical
+#   --order <list>      manual comma-separated order (uses sequential/kitty-native layout)
+#   --cwd <path>        working directory
+
+set -euo pipefail
+
+# --- role lookups ---
+role_model()  { case "$1" in master|architect|analyst|verifier) echo opus   ;; observer) echo haiku  ;; *) echo sonnet ;; esac; }
+role_effort() { case "$1" in master|architect|analyst|verifier) echo max    ;; observer) echo low    ;; *) echo medium  ;; esac; }
+role_tier()   { case "$1" in master) echo 1 ;; architect|analyst|verifier) echo 2 ;; intake) echo 3 ;; agent) echo 4 ;; critic) echo 5 ;; observer) echo 6 ;; *) echo 4 ;; esac; }
+# Column assignment:
+#   Col 1 (left, tall): master, intake, architect, analyst, verifier — primary/thinkers
+#   Col 2 (right, stacked): agents                                   — executors, always last
+#   Passive (observer, critic) go at bottom of col 1
+role_col() {
+    case "$1" in
+        agent)    echo 2 ;;
+        *)        echo 1 ;;  # everyone else in col 1; passive roles sort to bottom via tier
+    esac
+}
+
+infer_role() {
+    local name="$1" prefix="$2"
+    local stripped="${name#"$prefix"}"
+    echo "${stripped%%-*}"
+}
+
+# --- parse args ---
+PROJECT="khimaira"; MODE="start"
+OPT_PREFIX=""; OPT_MASTER=""; OPT_INTAKE=""
+OPT_AGENTS=3
+OPT_ANALYST=true; OPT_VERIFIER=true
+OPT_OBSERVER=true; OPT_ARCHITECT=true; OPT_CRITIC=true
+OPT_LAYOUT="splits"; OPT_ORDER=""; OPT_CWD=""
+declare -A FORCE_INCLUDE
+
+POSITIONAL=()
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --prefix)       OPT_PREFIX="$2";   shift 2 ;;
+        --master)       OPT_MASTER="$2";   shift 2 ;;
+        --intake)       OPT_INTAKE="$2";   shift 2 ;;
+        --agents)       OPT_AGENTS="$2";   shift 2 ;;
+        --analyst)      OPT_ANALYST=true;  FORCE_INCLUDE[analyst]=1;   shift ;;
+        --no-analyst)   OPT_ANALYST=false; unset "FORCE_INCLUDE[analyst]"; shift ;;
+        --verifier)     OPT_VERIFIER=true; FORCE_INCLUDE[verifier]=1;  shift ;;
+        --no-verifier)  OPT_VERIFIER=false; unset "FORCE_INCLUDE[verifier]"; shift ;;
+        --observer)     OPT_OBSERVER=true; FORCE_INCLUDE[observer]=1;  shift ;;
+        --no-observer)  OPT_OBSERVER=false; unset "FORCE_INCLUDE[observer]"; shift ;;
+        --architect)    OPT_ARCHITECT=true; FORCE_INCLUDE[architect]=1; shift ;;
+        --no-architect) OPT_ARCHITECT=false; unset "FORCE_INCLUDE[architect]"; shift ;;
+        --critic)       OPT_CRITIC=true;   FORCE_INCLUDE[critic]=1;    shift ;;
+        --no-critic)    OPT_CRITIC=false;  unset "FORCE_INCLUDE[critic]"; shift ;;
+        --layout)       OPT_LAYOUT="$2";   shift 2 ;;
+        --order)        OPT_ORDER="$2";    shift 2 ;;
+        --cwd)          OPT_CWD="$2";      shift 2 ;;
+        --*)            echo "Unknown flag: $1" >&2; exit 1 ;;
+        *)              POSITIONAL+=("$1"); shift ;;
+    esac
+done
+
+[[ ${#POSITIONAL[@]} -gt 0 ]] && PROJECT="${POSITIONAL[0]}"
+[[ ${#POSITIONAL[@]} -gt 1 ]] && MODE="${POSITIONAL[1]}"
+
+# --- project defaults ---
+if [[ "$PROJECT" == "khimaira" ]]; then
+    PREFIX="${OPT_PREFIX:-}"; MASTER="${OPT_MASTER:-khimaira-0}"; CWD="${OPT_CWD:-/home/_3ntropy/dev/khimaira}"
+elif [[ "$PROJECT" == "jp" ]]; then
+    PREFIX="${OPT_PREFIX:-jp-}"; MASTER="${OPT_MASTER:-janice-0}"; CWD="${OPT_CWD:-/home/_3ntropy/work/jeevy_portal}"
+else
+    PREFIX="${OPT_PREFIX:-${PROJECT}-}"; MASTER="${OPT_MASTER:-${PROJECT}-0}"; CWD="${OPT_CWD:-${HOME}/work/${PROJECT}}"
+fi
+
+INTAKE="${OPT_INTAKE:-${PREFIX}intake-1}"
+FLAG=$([[ "$MODE" == "resume" ]] && echo "-r" || echo "-n")
+
+# --- session pool ---
+declare -A SESSION_BUDGET SESSION_TIER SESSION_ROLE
+add_session() {
+    local name="$1" role="$2"
+    SESSION_BUDGET["$name"]="$(role_model "$role"):$(role_effort "$role")"
+    SESSION_TIER["$name"]="$(role_tier "$role")"
+    SESSION_ROLE["$name"]="$role"  # store explicitly — name may not encode role (e.g. janice-0)
+}
+
+add_session "$MASTER"  master
+add_session "$INTAKE"  intake
+for i in $(seq 1 "$OPT_AGENTS"); do add_session "${PREFIX}agent-${i}" agent; done
+$OPT_OBSERVER  && add_session "${PREFIX}observer-1"  observer
+$OPT_ARCHITECT && add_session "${PREFIX}architect-1" architect
+$OPT_CRITIC    && add_session "${PREFIX}critic-1"    critic
+$OPT_ANALYST   && add_session "${PREFIX}analyst-1"   analyst
+$OPT_VERIFIER  && add_session "${PREFIX}verifier-1"  verifier
+
+# --- resolve which sessions to launch (resume skip logic) ---
+declare -A KNOWN_SESSIONS
+if [[ "$MODE" == "resume" ]]; then
+    known_json=$(curl -sf 'http://127.0.0.1:8740/api/sessions' 2>/dev/null || echo '{"sessions":[]}')
+    while IFS= read -r sname; do
+        [[ -n "$sname" ]] && KNOWN_SESSIONS["$sname"]=1
+    done < <(echo "$known_json" | python3 -c "
+import sys,json; data=json.load(sys.stdin)
+for s in (data.get('sessions', data) if isinstance(data,dict) else data):
+    n=s.get('name','')
+    if n: print(n)
+" 2>/dev/null || true)
+fi
+
+# Determine effective flag (resume vs fresh) for each session
+session_flag() {
+    local name="$1" role="$2"
+    if [[ "$MODE" == "resume" && -z "${KNOWN_SESSIONS[$name]:-}" ]]; then
+        [[ -n "${FORCE_INCLUDE[$role]:-}" ]] && echo "-n" || echo "skip"
+    else
+        echo "$FLAG"
+    fi
+}
+
+# --- kitty remote control setup ---
+[[ -z "${KITTY_WINDOW_ID:-}" ]] && { echo "ERROR: not running inside kitty." >&2; exit 1; }
+KITTY_TO=(); [[ -n "${KITTY_LISTEN_ON:-}" ]] && KITTY_TO=(--to "$KITTY_LISTEN_ON")
+
+# Test remote control using a known-valid layout (hub/splits are custom names, not kitty-native)
+if ! kitty @ "${KITTY_TO[@]}" goto-layout splits 2>/dev/null; then
+    echo "ERROR: kitty remote control not available." >&2
+    echo "Add 'allow_remote_control yes' to ~/.config/kitty/kitty.conf and restart kitty." >&2
+    exit 1
+fi
+
+# Set the actual kitty layout — hub and splits both use kitty's splits engine
+case "$OPT_LAYOUT" in
+    hub|splits) ;; # already set to splits above
+    *)          kitty @ "${KITTY_TO[@]}" goto-layout "$OPT_LAYOUT" 2>/dev/null || true ;;
+esac
+
+# Launch one window into the splits layout
+do_launch() {
+    local name="$1" model="$2" effort="$3" flag="$4"
+    shift 4
+    kitty @ "${KITTY_TO[@]}" launch \
+        --type=window \
+        --title="$name" \
+        --cwd="$CWD" \
+        "$@" \
+        -- bash -ic "claude-chat $flag $name --model $model --effort $effort; exec bash"
+}
+
+# Focus by window title; sleep gives kitty time to settle before next split
+focus() { kitty @ "${KITTY_TO[@]}" focus-window --match "title:$1" 2>/dev/null || true; sleep 0.3; }
+
+# --- 3-column splits layout ---
+# Col A (left):   intake (top) / master (bottom)
+# Col B (middle): architect / analyst / verifier / critic  — 4 equal, stacked
+# Col C (right):  observer / agent-1 / agent-2 / agent-3  — 4 equal, stacked
+do_3col_layout() {
+    # Collect sessions by role, respecting resume skip logic
+    get_entry() {
+        local role="$1"
+        for name in "${!SESSION_ROLE[@]}"; do
+            [[ "${SESSION_ROLE[$name]}" != "$role" ]] && continue
+            local sflag; sflag=$(session_flag "$name" "$role")
+            [[ "$sflag" == "skip" ]] && { printf "  %-22s skipped (pass --%s to force)\n" "$name" "$role"; echo ""; return; }
+            IFS=: read -r model effort <<< "${SESSION_BUDGET[$name]}"
+            echo "$name:$model:$effort:$sflag"
+            return
+        done
+        echo ""
+    }
+
+    get_agents() {
+        local agents=()
+        for name in "${!SESSION_ROLE[@]}"; do
+            [[ "${SESSION_ROLE[$name]}" != "agent" ]] && continue
+            local sflag; sflag=$(session_flag "$name" "agent")
+            [[ "$sflag" == "skip" ]] && { printf "  %-22s skipped\n" "$name"; continue; }
+            IFS=: read -r model effort <<< "${SESSION_BUDGET[$name]}"
+            agents+=("$name:$model:$effort:$sflag")
+        done
+        printf '%s\n' "${agents[@]}" | sort
+    }
+
+    local e_intake e_master e_arch e_anal e_verif e_crit e_obs
+    e_intake=$(get_entry intake)
+    e_master=$(get_entry master)
+    e_arch=$(get_entry architect)
+    e_anal=$(get_entry analyst)
+    e_verif=$(get_entry verifier)
+    e_crit=$(get_entry critic)
+    e_obs=$(get_entry observer)
+
+    local agent_entries=()
+    while IFS= read -r line; do [[ -n "$line" ]] && agent_entries+=("$line"); done < <(get_agents)
+
+    [[ -z "$e_intake" ]] && { echo "ERROR: intake session required for layout." >&2; exit 1; }
+
+    echo ""
+    echo "  Col A (left)  : intake / master"
+    echo "  Col B (middle): architect / analyst / verifier / critic"
+    echo "  Col C (right) : observer / agents"
+    echo ""
+
+    local intake_name arch_name obs_name col_b_prev_name col_c_prev_name
+
+    # 1. Launch intake → fills screen (Col A top)
+    IFS=: read -r name model effort sflag <<< "$e_intake"
+    printf "  launching %-22s %s/%s\n" "$name" "$model" "$effort"
+    do_launch "$name" "$model" "$effort" "$sflag" > /dev/null
+    intake_name="$name"
+
+    # 2. vsplit intake → architect starts Col B
+    arch_name=""
+    if [[ -n "$e_arch" ]]; then
+        focus "$intake_name"
+        IFS=: read -r name model effort sflag <<< "$e_arch"
+        printf "  launching %-22s %s/%s\n" "$name" "$model" "$effort"
+        do_launch "$name" "$model" "$effort" "$sflag" --location=vsplit > /dev/null
+        arch_name="$name"
+    fi
+
+    # 3. vsplit Col B anchor → observer starts Col C
+    obs_name=""
+    local col_b_anchor_name="${arch_name:-$intake_name}"
+    if [[ -n "$e_obs" ]]; then
+        focus "$col_b_anchor_name"
+        IFS=: read -r name model effort sflag <<< "$e_obs"
+        printf "  launching %-22s %s/%s\n" "$name" "$model" "$effort"
+        do_launch "$name" "$model" "$effort" "$sflag" --location=vsplit > /dev/null
+        obs_name="$name"
+    fi
+
+    # 4. hsplit intake → master below (Col A bottom)
+    if [[ -n "$e_master" ]]; then
+        focus "$intake_name"
+        IFS=: read -r name model effort sflag <<< "$e_master"
+        printf "  launching %-22s %s/%s\n" "$name" "$model" "$effort"
+        do_launch "$name" "$model" "$effort" "$sflag" --location=hsplit > /dev/null
+    fi
+
+    # 5. Stack Col B: analyst / verifier / critic below architect
+    col_b_prev_name="$arch_name"
+    for e in "$e_anal" "$e_verif" "$e_crit"; do
+        [[ -z "$e" || -z "$col_b_prev_name" ]] && continue
+        focus "$col_b_prev_name"
+        IFS=: read -r name model effort sflag <<< "$e"
+        printf "  launching %-22s %s/%s\n" "$name" "$model" "$effort"
+        do_launch "$name" "$model" "$effort" "$sflag" --location=hsplit > /dev/null
+        col_b_prev_name="$name"
+    done
+
+    # 6. Stack Col C: agents below observer
+    col_c_prev_name="$obs_name"
+    for entry in "${agent_entries[@]}"; do
+        [[ -z "$col_c_prev_name" ]] && break
+        focus "$col_c_prev_name"
+        IFS=: read -r name model effort sflag <<< "$entry"
+        printf "  launching %-22s %s/%s\n" "$name" "$model" "$effort"
+        do_launch "$name" "$model" "$effort" "$sflag" --location=hsplit > /dev/null
+        col_c_prev_name="$name"
+    done
+
+    focus "$intake_name"
+}
+
+# --- hub layout ---
+# Col A (left):   analyst / verifier / critic / architect  — 4 equal small
+# Col B (center): intake (top half) / MASTER (bottom half) — equal large
+# Col C (right):  observer / agent-1 / agent-2 / agent-3  — 4 equal small
+do_hub_layout() {
+    local _role _name _model _effort _sflag
+
+    get_entry() {
+        local role="$1"
+        for _name in "${!SESSION_ROLE[@]}"; do
+            [[ "${SESSION_ROLE[$_name]}" != "$role" ]] && continue
+            _sflag=$(session_flag "$_name" "$role")
+            [[ "$_sflag" == "skip" ]] && { printf "  %-22s skipped (pass --%s to force)\n" "$_name" "$role"; echo ""; return; }
+            IFS=: read -r _model _effort <<< "${SESSION_BUDGET[$_name]}"
+            echo "$_name:$_model:$_effort:$_sflag"
+            return
+        done
+        echo ""
+    }
+
+    local e_intake e_master e_arch e_anal e_verif e_crit e_obs
+    e_intake=$(get_entry intake)
+    e_master=$(get_entry master)
+    e_arch=$(get_entry architect)
+    e_anal=$(get_entry analyst)
+    e_verif=$(get_entry verifier)
+    e_crit=$(get_entry critic)
+    e_obs=$(get_entry observer)
+
+    local agent_entries=()
+    for _name in "${!SESSION_ROLE[@]}"; do
+        [[ "${SESSION_ROLE[$_name]}" != "agent" ]] && continue
+        _sflag=$(session_flag "$_name" "agent")
+        [[ "$_sflag" == "skip" ]] && continue
+        IFS=: read -r _model _effort <<< "${SESSION_BUDGET[$_name]}"
+        agent_entries+=("$_name:$_model:$_effort:$_sflag")
+    done
+    agent_entries=($(printf '%s\n' "${agent_entries[@]}" | sort))
+
+    [[ -z "$e_intake" ]] && { echo "ERROR: hub layout requires intake session." >&2; exit 1; }
+
+    echo ""
+    echo "  Hub layout:"
+    echo "  Col A (left):   analyst / verifier / critic / architect"
+    echo "  Col B (center): intake (top) / MASTER (bottom) — equal size"
+    echo "  Col C (right):  observer / agent-1 / agent-2 / agent-3"
+    echo ""
+
+    # Left col sessions in order: analyst → verifier → critic → architect
+    local left_sessions=()
+    for e in "$e_anal" "$e_verif" "$e_crit" "$e_arch"; do
+        [[ -n "$e" ]] && left_sessions+=("$e")
+    done
+
+    # 1. Launch first left-col session (fills screen — left col anchor)
+    local left_anchor_name=""
+    if [[ ${#left_sessions[@]} -gt 0 ]]; then
+        IFS=: read -r _name _model _effort _sflag <<< "${left_sessions[0]}"
+        printf "  launching %-22s %s/%s\n" "$_name" "$_model" "$_effort"
+        do_launch "$_name" "$_model" "$_effort" "$_sflag" > /dev/null
+        left_anchor_name="$_name"
+    fi
+
+    # 2. vsplit left anchor → intake (center col)
+    local intake_name=""
+    IFS=: read -r _name _model _effort _sflag <<< "$e_intake"
+    focus "$left_anchor_name"
+    printf "  launching %-22s %s/%s\n" "$_name" "$_model" "$_effort"
+    do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=vsplit > /dev/null
+    intake_name="$_name"
+
+    # 3. vsplit intake → observer (right col anchor)
+    local obs_name=""
+    if [[ -n "$e_obs" ]]; then
+        IFS=: read -r _name _model _effort _sflag <<< "$e_obs"
+        focus "$intake_name"
+        printf "  launching %-22s %s/%s\n" "$_name" "$_model" "$_effort"
+        do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=vsplit > /dev/null
+        obs_name="$_name"
+    fi
+
+    # 4. hsplit intake → master (below intake, equal size)
+    if [[ -n "$e_master" ]]; then
+        IFS=: read -r _name _model _effort _sflag <<< "$e_master"
+        focus "$intake_name"
+        printf "  launching %-22s %s/%s\n" "$_name" "$_model" "$_effort"
+        do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=hsplit > /dev/null
+    fi
+
+    # 5. Stack remaining left col sessions below left anchor
+    local left_prev_name="$left_anchor_name"
+    for entry in "${left_sessions[@]:1}"; do
+        IFS=: read -r _name _model _effort _sflag <<< "$entry"
+        focus "$left_prev_name"
+        printf "  launching %-22s %s/%s\n" "$_name" "$_model" "$_effort"
+        do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=hsplit > /dev/null
+        left_prev_name="$_name"
+    done
+
+    # 6. Stack agents below observer in right col
+    local right_prev_name="$obs_name"
+    for entry in "${agent_entries[@]}"; do
+        [[ -z "$right_prev_name" ]] && break
+        IFS=: read -r _name _model _effort _sflag <<< "$entry"
+        focus "$right_prev_name"
+        printf "  launching %-22s %s/%s\n" "$_name" "$_model" "$_effort"
+        do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=hsplit > /dev/null
+        right_prev_name="$_name"
+    done
+
+    focus "$intake_name"
+}
+
+# --- sequential layout (for --order or non-splits layouts) ---
+do_sequential_layout() {
+    local sessions=("$@")
+    for entry in "${sessions[@]}"; do
+        IFS=: read -r name model effort sflag <<< "$entry"
+        [[ "$sflag" == "skip" ]] && { printf "  %-22s skipped\n" "$name"; continue; }
+        printf "  launching %-22s %s/%s\n" "$name" "$model" "$effort"
+        do_launch "$name" "$model" "$effort" "$sflag" > /dev/null
+    done
+}
+
+# --- main ---
+echo "Launching $PROJECT roster ($MODE) — layout: $OPT_LAYOUT"
+
+if [[ "$OPT_LAYOUT" == "hub" && -z "$OPT_ORDER" ]]; then
+    do_hub_layout
+elif [[ "$OPT_LAYOUT" == "splits" && -z "$OPT_ORDER" ]]; then
+    do_3col_layout
+else
+    # Build ordered list (manual --order or auto-tier-sorted)
+    ORDERED=()
+    if [[ -n "$OPT_ORDER" ]]; then
+        IFS=',' read -ra ORDER_NAMES <<< "$OPT_ORDER"
+        for name in "${ORDER_NAMES[@]}"; do
+            name="${name// /}"
+            role=$(infer_role "$name" "$PREFIX")
+            sflag=$(session_flag "$name" "$role")
+            if [[ -n "${SESSION_BUDGET[$name]:-}" ]]; then
+                IFS=: read -r model effort <<< "${SESSION_BUDGET[$name]}"
+            else
+                model=$(role_model "$role"); effort=$(role_effort "$role")
+                echo "  + auto-adding $name ($role → $model/$effort)"
+            fi
+            ORDERED+=("$name:$model:$effort:$sflag")
+        done
+    else
+        while IFS= read -r line; do ORDERED+=("$line"); done < <(
+            for name in "${!SESSION_TIER[@]}"; do
+                role=$(infer_role "$name" "$PREFIX")
+                sflag=$(session_flag "$name" "$role")
+                IFS=: read -r model effort <<< "${SESSION_BUDGET[$name]}"
+                echo "${SESSION_TIER[$name]}:$name:$model:$effort:$sflag"
+            done | sort -t: -k1,1n -k2,2 | sed 's/^[0-9]*://'
+        )
+    fi
+    do_sequential_layout "${ORDERED[@]}"
+fi
+
+echo ""
+echo "Done. Run /khimaira-bootstrap-roster${PREFIX:+ --prefix ${PREFIX%%-}} inside $MASTER to wire the chat."
+echo "Closing this launch terminal in 2s..."
+sleep 2
+kitty @ "${KITTY_TO[@]}" close-window --match "id:${KITTY_WINDOW_ID}" 2>/dev/null || true

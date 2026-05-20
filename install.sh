@@ -29,5 +29,9 @@ link "claude/CLAUDE.md"  "$HOME/.claude/CLAUDE.md"
 link "claude/rules"      "$HOME/.claude/rules"
 link "claude/commands"   "$HOME/.claude/commands"
 
+# Scripts
+mkdir -p "$HOME/bin"
+link "bin/roster" "$HOME/bin/roster"
+
 echo ""
 echo "Done. Open a new terminal and run 'nvim' to install plugins."
