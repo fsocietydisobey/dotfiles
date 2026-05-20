@@ -422,14 +422,16 @@ do_hub_layout() {
         balanced_col "$id_obs" "${agent_entries[@]}"
     fi
 
-    # 7. Adjust column widths using actual measured widths.
-    # Target: A=C=28%, B=44% of total. Binary tree: A and (B,C) are siblings; B,C are siblings.
-    # Resizing A affects B+C together. Resizing C (right) affects B only.
-    sleep 0.2  # let kitty settle before measuring
-    local ls_json
+    # 7. Equalize column widths: shrink A until A = C.
+    # `resize-window` returns "Could not resize" in splits layout — use
+    # `action resize_window narrower` which works (adjusts 1 cell per call).
+    # A is the leftmost column and always starts widest (50%). Narrowing A
+    # moves its right divider left, giving the extra width to B (center).
+    sleep 0.3
+    local ls_json w_a w_c delta_a
     ls_json=$(kitty @ "${KITTY_TO[@]}" ls 2>/dev/null || echo "[]")
 
-    get_cols() {
+    _get_cols() {
         local win_id="$1"
         echo "$ls_json" | python3 -c "
 import sys, json
@@ -437,39 +439,21 @@ data = json.load(sys.stdin)
 for os_win in data:
     for tab in os_win.get('tabs', []):
         for w in tab.get('windows', []):
-            if w['id'] == $win_id:
-                print(w.get('columns', 0))
-                sys.exit()
-print(0)
-" 2>/dev/null || echo 0
+            if w['id'] == int('$win_id'):
+                print(w.get('columns', 0)); sys.exit()
+print(0)" 2>/dev/null || echo 0
     }
 
-    local w_a w_b w_c total target_a target_c delta_a delta_c
-    w_a=$(get_cols "$id_left_anchor")
-    w_b=$(get_cols "$id_intake")
-    w_c=$(get_cols "$id_obs")
-    total=$(( w_a + w_b + w_c ))
+    w_a=$(_get_cols "$id_left_anchor")
+    w_c=$(_get_cols "$id_obs")
+    delta_a=$(( w_a - w_c ))
 
-    if [[ $total -gt 0 ]]; then
-        # target_a = target_c = 28% of total; B gets the rest
-        target_a=$(( total * 28 / 100 ))
-        target_c=$(( total * 28 / 100 ))
-
-        # Shrink A: delta_a = how much A needs to lose
-        delta_a=$(( w_a - target_a ))
-        if [[ $delta_a -gt 0 ]]; then
-            kitty @ "${KITTY_TO[@]}" resize-window \
-                --match "id:$id_left_anchor" --axis horizontal --increment "-$delta_a" 2>/dev/null || true
-            sleep 0.2
-        fi
-
-        # After A shrinks, C has grown by ~delta_a/2. Measure new C and shrink to target.
-        w_c=$(get_cols "$id_obs")
-        delta_c=$(( w_c - target_c ))
-        if [[ $delta_c -gt 0 ]]; then
-            kitty @ "${KITTY_TO[@]}" resize-window \
-                --match "id:$id_obs" --axis horizontal --increment "-$delta_c" 2>/dev/null || true
-        fi
+    if [[ $delta_a -gt 0 && -n "$id_left_anchor" ]]; then
+        # Shrink A by delta_a cells, 1 cell at a time via action API
+        for (( i=0; i<delta_a; i++ )); do
+            kitty @ "${KITTY_TO[@]}" action \
+                --match "id:$id_left_anchor" resize_window narrower 2>/dev/null || break
+        done
     fi
 
     focus "$id_intake"
