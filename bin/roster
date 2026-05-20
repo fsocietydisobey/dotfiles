@@ -422,16 +422,22 @@ do_hub_layout() {
         balanced_col "$id_obs" "${agent_entries[@]}"
     fi
 
-    # 7. Equalize column widths.
-    # After the 3 vsplits, widths are: left=50%, center=25%, right=25%.
-    # Target: ~33% each. Shrink left by 1/6 of screen width, grow right by 1/12.
-    # COLUMNS is captured before any splits (full-screen launch terminal width).
-    local shrink=$(( COLUMNS / 6 ))
-    local grow=$(( COLUMNS / 12 ))
-    [[ $shrink -gt 0 ]] && kitty @ "${KITTY_TO[@]}" resize-window \
-        --match "id:$id_left_anchor" --axis horizontal --increment "-$shrink" 2>/dev/null || true
-    [[ -n "$id_obs" && $grow -gt 0 ]] && kitty @ "${KITTY_TO[@]}" resize-window \
-        --match "id:$id_obs" --axis horizontal --increment "$grow" 2>/dev/null || true
+    # 7. Adjust column widths.
+    # After 3 vsplits: A=50%, B=25%, C=25%. Target: A=C=28%, B=44% (center wider).
+    #
+    # Step 1: shrink A by 22% → A=28%, B+C subtree grows to 72% → B=36%, C=36%
+    # Step 2: shrink C by 8% → C=28%, B gains that → B=44%
+    #
+    # Binary tree: A and (B,C) are siblings; B and C are siblings.
+    # Resizing A affects B+C together. Resizing C affects B only.
+    local shrink_a=$(( COLUMNS * 22 / 100 ))
+    local shrink_c=$(( COLUMNS * 8 / 100 ))
+    [[ -n "$id_left_anchor" && $shrink_a -gt 0 ]] && \
+        kitty @ "${KITTY_TO[@]}" resize-window \
+            --match "id:$id_left_anchor" --axis horizontal --increment "-$shrink_a" 2>/dev/null || true
+    [[ -n "$id_obs" && $shrink_c -gt 0 ]] && \
+        kitty @ "${KITTY_TO[@]}" resize-window \
+            --match "id:$id_obs" --axis horizontal --increment "-$shrink_c" 2>/dev/null || true
 
     focus "$id_intake"
 }
