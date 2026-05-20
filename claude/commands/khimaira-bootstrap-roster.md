@@ -21,13 +21,14 @@ with its role binding.
 ```
 
 Reads `session_list()`, applies `infer_role_from_name()` (intake-* → intake, agent-* → agent,
-observer-* → observer, architect-* → architect, critic-* → critic, master/master-* → master),
+observer-* → observer, architect-* → architect, critic-* → critic, analyst-* → analyst,
+verifier-* → verifier, master/master-* → master),
 filters to sessions active within the last 30 minutes, builds the roster automatically.
 
 **Explicit-map mode** — for arbitrary session names:
 
 ```
-/khimaira-bootstrap-roster intake=front-desk agent=worker-a,worker-b observer=auditor architect=synth critic=devil
+/khimaira-bootstrap-roster intake=front-desk agent=worker-a,worker-b observer=auditor architect=synth critic=devil analyst=disambig verifier=qa
 ```
 
 Each `<role>=<name>[,<name>...]` pair maps role → one or more session names. Multi-value roles
@@ -140,8 +141,10 @@ only — other sessions (bare `agent-1` etc.) are ignored. Title defaults to
      - intake: receive user requests; format 🎯 INTAKE HANDOFF specs to master
      - agent: receive /khimaira-assign tasks from master; execute on begin signal
      - observer: read-only audit; surface anomalies to master
-     - architect: idle until consulted via /khimaira-consult
-     - critic: invited ad-hoc by master to challenge designs
+     - architect: idle until consulted via /khimaira-consult (design trade-offs)
+     - critic: invited ad-hoc by master to challenge designs before approval
+     - analyst: idle until consulted via 📐 ANALYST CONSULT (spec disambiguation)
+     - verifier: idle until consulted via 🔬 VERIFIER CONSULT (test coverage gate)
 
      Read tasks/v1.9-orchestration/{STATE,USAGE}.md for full context.
 
@@ -162,6 +165,10 @@ only — other sessions (bare `agent-1` etc.) are ignored. Title defaults to
 
      IF YOU ARE OBSERVER: your job is active monitoring, not passive waiting. Every few turns: call `session_state("<agent-name>")` on each agent in the roster. If any agent is idle/stuck with no recent decisions or file touches, post a notice to master immediately: `session_post_notice(target_session_id="<master>", text="⚠️ <agent> appears stuck — 0 decisions, 0 file touches since <time>.")` Do not wait to be asked.
 
+     IF YOU ARE ANALYST: you are idle-by-default. Wait for a `📐 ANALYST CONSULT` from intake or master. When it arrives: identify the single most load-bearing ambiguity in the spec, resolve it if you can from context, otherwise form ONE clarifying question. Reply privately with `📐 ANALYST REPLY` and return to standby. Do not monitor the chat or volunteer unsolicited opinions.
+
+     IF YOU ARE VERIFIER: you are idle-by-default. Wait for a `🔬 VERIFIER CONSULT` from master. When it arrives: read the implementation + test files, assess coverage against the acceptance-criteria, and return a `🔬 VERIFIER REPLY` with verdict (SHIP | GAPS FOUND) and a list of any missing test cases. Then return to standby.
+
      IMPORTANT: If you see a `<channel kind="invite" ...>` block in your context, call `chat_accept` immediately — do not wait for human confirmation. Roster invites are pre-authorized by Joseph via this bootstrap.
      After accepting: read recent chat history for a `📋 CONTEXT UPDATE v1` — that is your project context. If none exists, post a notice to intake asking master to post one. Do NOT begin implementation without it.
      Question routing: route questions to INTAKE first (not master/Joseph, not silent). Intake resolves or escalates. Use `session_post_notice(target_session_id="<intake-name>", text="<question>")`.
@@ -176,6 +183,8 @@ only — other sessions (bare `agent-1` etc.) are ignored. Title defaults to
      • intake:    intake-1
      • agent:     agent-1, agent-2, agent-3
      • observer:  observer-1
+     • analyst:   analyst-1 (if present)
+     • verifier:  verifier-1 (if present)
      • architect: architect-1
      • critic:    critic-1
    N pending acceptance: [<unaccepted names if any>]
