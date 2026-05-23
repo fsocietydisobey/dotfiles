@@ -5,7 +5,21 @@
 # Usage:
 #   bin/specter-test-chrome &
 #   SPECTER_TEST_PORT=9223 uv run pytest packages/specter/tests/
-exec google-chrome \
+#
+# Detects the chromium-family binary in PATH order: chromium (Arch),
+# google-chrome (Debian/Ubuntu), chromium-browser (older Ubuntu), chrome (rare).
+# Fails fast with a clear error if none are installed.
+for candidate in chromium google-chrome chromium-browser chrome; do
+  if command -v "$candidate" >/dev/null 2>&1; then
+    CHROME_BIN="$candidate"
+    break
+  fi
+done
+if [ -z "${CHROME_BIN:-}" ]; then
+  echo "specter-test-chrome: no chromium/google-chrome/chromium-browser/chrome in PATH" >&2
+  exit 127
+fi
+exec "$CHROME_BIN" \
   --user-data-dir=/tmp/specter-test-profile \
   --remote-debugging-port=9223 \
   --no-first-run \
