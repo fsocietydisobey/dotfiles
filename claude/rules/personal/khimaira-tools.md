@@ -47,6 +47,15 @@ Every `seance_*` tool. Use these names directly with `ToolSearch(query="select:m
 
 ## Specter — browser verification AND debugging via CDP
 
+**MANDATORY FIRST STEP (production):** Every Specter session MUST start with `specter_list_tabs()` → `specter_connect_to_tab(<id>)`. There is no auto-pick — Specter never decides which tab to operate on. Any tool call before `specter_connect_to_tab` raises ConnectionError. This prevents Specter from silently stealing the user's active browser tabs.
+
+**TEST ISOLATION:** Specter integration tests must run against a dedicated Chrome, NOT Joseph's daily Chrome (port 9222). Start the isolated instance before running tests:
+```bash
+bin/specter-test-chrome &          # launches Chrome on port 9223, isolated profile
+SPECTER_TEST_PORT=9223 uv run pytest packages/specter/tests/
+```
+Without `SPECTER_TEST_PORT`, tests emit a DeprecationWarning and fall back to port 9222 — that path navigates Joseph's active tabs and is deprecated (hard-skip after 2026-05-30).
+
 Specter has two equal-billed use cases. Both are first-class. The most common failure mode is treating it as debug-only and never reaching for it after shipping a UI change — that's how visual regressions leak past `tsc --noEmit`.
 
 **Use case 1 — VERIFY (after any UI change):**
@@ -79,7 +88,11 @@ The verification flow:
 
 **Workflow (debugging side):**
 
-1. **Always start with `specter_debug_snapshot()`** — one call returns screenshot + page info + console errors + network errors + page structure. Use this first; call individual tools only to drill into specifics.
+0. **For UI-interaction-produces-no-visible-result bugs, START with `specter_get_redux_state(<slice-name>)` — NOT debug_snapshot, NOT source-code inspection, NOT reverting recent changes.** The Redux state is ground truth; the source code is just the theory of how state should look. If a click/toggle/selection produces zero visible response, the slice has the answer in <10 sec: check what the overlay/component hook is actually reading from store. Source inspection comes AFTER state confirms the bug location.
+
+   Observed failure (2026-05-22, jp roster `__bootstrap__` sentinel incident): jp spent significant time reverting the grey-bbox feature + chasing HITL overlay bugs across multiple agent cycles. Root cause was a 1-line slice fix — `verificationSelectionSlice.setQuestion` not evicting the `__bootstrap__` sentinel when real questions arrived. `selectAllQuestionEntries[0]` always resolved to sentinel; `selectedDetectionIds` was always `[]`. One `specter_get_redux_state("verificationSelection")` showed the sentinel at index 0 immediately. Hours of source-code chase avoided by going to state first.
+
+1. **Always start with `specter_debug_snapshot()`** — one call returns screenshot + page info + console errors + network errors + page structure. Use this first for OTHER browser-visible bugs (layout, console errors, network failures); call individual tools only to drill into specifics.
 2. For data-shape questions, use `specter_evaluate_js("console.log(JSON.stringify(...))")` then `specter_get_console_logs()`. Do not guess at runtime data — inspect it.
 3. For navigation during an in-app flow, prefer `specter_click_element` over `specter_navigate_to` — clicking exercises the app's router and preserves state. Use `specter_router_navigate` for deep-linking; reserve hard `navigate_to` for cross-origin or deliberate resets.
 4. Wrong data after an API call? `specter_get_network_log(url_filter='/api/...')` — the bug is often in the response transformation, not the component.

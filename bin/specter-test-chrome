@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Dedicated Chrome instance for Specter integration tests.
+# Isolated user-data-dir prevents test tabs from appearing in Joseph's browser.
+#
+# Usage:
+#   bin/specter-test-chrome &
+#   SPECTER_TEST_PORT=9223 uv run pytest packages/specter/tests/
+exec google-chrome \
+  --user-data-dir=/tmp/specter-test-profile \
+  --remote-debugging-port=9223 \
+  --no-first-run \
+  --no-default-browser-check \
+  about:blank

@@ -52,6 +52,7 @@ Applies to:
 - **Detail matters.** Task specs, implementation plans, and code reviews should be thorough enough that someone unfamiliar with the codebase can follow them. Don't hand-wave over complexity.
 - **Understand the full picture.** Before changing a file, understand who calls it, what depends on it, and what breaks if it changes. Trace imports, check call sites, read tests.
 - **Verify before recommending.** Don't recommend a library feature without confirming it exists in the version being used. Don't reference a function without confirming it's still in the codebase.
+- **For bug consults: enumerate the class before designing the fix.** When a bug surfaces, abstract the bug CLASS and list all known paths (BROKEN/SAFE/UNKNOWN) before writing the fix spec. A fix that closes one path while leaving siblings open is whack-a-mole. See `[[bug-class-enumeration]]` for the template and the Specter case study.
 
 ## Systems thinking
 
