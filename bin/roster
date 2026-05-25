@@ -9,7 +9,7 @@
 #
 #   hub — solar system: master full-height in center, others orbit:
 #     Col A (left):   intake / analyst / architect / verifier / critic
-#     Col B (center): MASTER (undivided — the sun)
+#     Col B (center): MASTER (top, large) / tracker (bottom, small)
 #     Col C (right):  observer / agent-1 / agent-2 / agent-3
 #
 #   grid | tall | fat | horizontal | vertical — kitty native layouts (sequential order)
@@ -40,9 +40,9 @@
 set -euo pipefail
 
 # --- role lookups ---
-role_model()  { case "$1" in master|architect|analyst|verifier) echo opus   ;; observer) echo haiku  ;; *) echo sonnet ;; esac; }
-role_effort() { case "$1" in master|architect|analyst|verifier) echo max    ;; observer) echo low    ;; *) echo medium  ;; esac; }
-role_tier()   { case "$1" in master) echo 1 ;; architect|analyst|verifier) echo 2 ;; intake) echo 3 ;; agent) echo 4 ;; critic) echo 5 ;; observer) echo 6 ;; *) echo 4 ;; esac; }
+role_model()  { case "$1" in master|architect|analyst) echo opus ;; observer|tracker) echo haiku ;; *) echo sonnet ;; esac; }
+role_effort() { case "$1" in architect) echo max ;; master) echo high ;; observer) echo low ;; *) echo medium ;; esac; }
+role_tier()   { case "$1" in master) echo 1 ;; architect|analyst|verifier) echo 2 ;; intake) echo 3 ;; agent) echo 4 ;; critic) echo 5 ;; observer) echo 6 ;; tracker) echo 7 ;; *) echo 4 ;; esac; }
 # Column assignment:
 #   Col 1 (left, tall): master, intake, architect, analyst, verifier — primary/thinkers
 #   Col 2 (right, stacked): agents                                   — executors, always last
@@ -64,7 +64,7 @@ infer_role() {
 PROJECT="khimaira"; MODE="start"
 OPT_PREFIX=""; OPT_MASTER=""; OPT_INTAKE=""
 OPT_AGENTS=3
-OPT_ANALYST=true; OPT_VERIFIER=true
+OPT_ANALYST=true; OPT_VERIFIER=true; OPT_TRACKER=true
 OPT_OBSERVER=true; OPT_ARCHITECT=true; OPT_CRITIC=true
 OPT_LAYOUT="splits"; OPT_ORDER=""; OPT_CWD=""
 declare -A FORCE_INCLUDE
@@ -80,6 +80,8 @@ while [[ $# -gt 0 ]]; do
         --no-analyst)   OPT_ANALYST=false; unset "FORCE_INCLUDE[analyst]"; shift ;;
         --verifier)     OPT_VERIFIER=true; FORCE_INCLUDE[verifier]=1;  shift ;;
         --no-verifier)  OPT_VERIFIER=false; unset "FORCE_INCLUDE[verifier]"; shift ;;
+        --tracker)      OPT_TRACKER=true;  FORCE_INCLUDE[tracker]=1;   shift ;;
+        --no-tracker)   OPT_TRACKER=false; unset "FORCE_INCLUDE[tracker]"; shift ;;
         --observer)     OPT_OBSERVER=true; FORCE_INCLUDE[observer]=1;  shift ;;
         --no-observer)  OPT_OBSERVER=false; unset "FORCE_INCLUDE[observer]"; shift ;;
         --architect)    OPT_ARCHITECT=true; FORCE_INCLUDE[architect]=1; shift ;;
@@ -94,8 +96,15 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-[[ ${#POSITIONAL[@]} -gt 0 ]] && PROJECT="${POSITIONAL[0]}"
-[[ ${#POSITIONAL[@]} -gt 1 ]] && MODE="${POSITIONAL[1]}"
+# Positional form is `roster <project> <mode>`, but `roster resume` (mode-only,
+# project defaults to khimaira) is the common case. Detect that by checking if
+# the first positional is a known mode keyword.
+if [[ ${#POSITIONAL[@]} -eq 1 && ( "${POSITIONAL[0]}" == "start" || "${POSITIONAL[0]}" == "resume" ) ]]; then
+    MODE="${POSITIONAL[0]}"
+else
+    [[ ${#POSITIONAL[@]} -gt 0 ]] && PROJECT="${POSITIONAL[0]}"
+    [[ ${#POSITIONAL[@]} -gt 1 ]] && MODE="${POSITIONAL[1]}"
+fi
 
 # --- project defaults ---
 if [[ "$PROJECT" == "khimaira" ]]; then
@@ -107,7 +116,9 @@ else
 fi
 
 INTAKE="${OPT_INTAKE:-${PREFIX}intake-1}"
-FLAG=$([[ "$MODE" == "resume" ]] && echo "-r" || echo "-n")
+# `echo "-n"` produces empty output — bash treats -n as the no-newline flag.
+# Use printf so the literal `-n` is preserved. Same for any other `echo "-X"`.
+FLAG=$([[ "$MODE" == "resume" ]] && printf -- '-r' || printf -- '-n')
 
 # --- session pool ---
 declare -A SESSION_BUDGET SESSION_TIER SESSION_ROLE
@@ -126,6 +137,7 @@ $OPT_ARCHITECT && add_session "${PREFIX}architect-1" architect
 $OPT_CRITIC    && add_session "${PREFIX}critic-1"    critic
 $OPT_ANALYST   && add_session "${PREFIX}analyst-1"   analyst
 $OPT_VERIFIER  && add_session "${PREFIX}verifier-1"  verifier
+$OPT_TRACKER   && add_session "${PREFIX}tracker-1"   tracker
 
 # --- resolve which sessions to launch (resume skip logic) ---
 declare -A KNOWN_SESSIONS
@@ -144,10 +156,24 @@ fi
 # Determine effective flag (resume vs fresh) for each session
 session_flag() {
     local name="$1" role="$2"
+    # Explicit --<role> flag: always start fresh with -n.
+    # KNOWN_SESSIONS comes from khimaira's API which records every name ever
+    # seen — including from previous failed attempts where Claude Code never
+    # persisted a session file. Trying to -r a name khimaira knows but Claude
+    # Code can't resume drops you on the "No sessions match" picker.
+    # The --<role> flag is the user's explicit "I want this role fresh" signal.
+    if [[ -n "${FORCE_INCLUDE[$role]:-}" ]]; then
+        # `echo "-n"` is empty (bash builtin interprets -n as the no-newline flag).
+        # Use printf so the literal `-n` survives to claude.
+        printf -- '-n\n'
+        return
+    fi
     if [[ "$MODE" == "resume" && -z "${KNOWN_SESSIONS[$name]:-}" ]]; then
-        [[ -n "${FORCE_INCLUDE[$role]:-}" ]] && echo "-n" || echo "skip"
+        echo "skip"
     else
-        echo "$FLAG"
+        # printf, not echo: `echo "$FLAG"` produces empty when FLAG="-n"
+        # (bash echo treats -n as the no-newline flag).
+        printf -- '%s\n' "$FLAG"
     fi
 }
 
@@ -168,7 +194,7 @@ case "$OPT_LAYOUT" in
     *)          kitty @ "${KITTY_TO[@]}" goto-layout "$OPT_LAYOUT" 2>/dev/null || true ;;
 esac
 
-# Launch one window; echoes its kitty window ID (integer)
+# Launch one window; echoes its kitty window ID (integer).
 do_launch() {
     local name="$1" model="$2" effort="$3" flag="$4"
     shift 4
@@ -177,7 +203,7 @@ do_launch() {
         --title="$name" \
         --cwd="$CWD" \
         "$@" \
-        -- bash -ic "claude-chat $flag $name --model $model --effort $effort; exec bash"
+        -- bash -ic "cd '$CWD' && claude-chat $flag $name --model $model --effort $effort; exec bash"
     # kitty @ launch prints the window-id to stdout — captured by caller
 }
 
@@ -296,11 +322,16 @@ do_3col_layout() {
 }
 
 # --- hub layout ---
-# Col A (left):   analyst / verifier / critic / architect  — 4 equal small
-# Col B (center): intake (top half) / MASTER (bottom half) — equal large
-# Col C (right):  observer / agent-1 / agent-2 / agent-3  — 4 equal small
+# Col A (left,  ~25%): analyst / verifier / critic / architect  — equal small
+# Col B (center,~50%): intake (top) / MASTER (bottom)           — equal large
+# Col C (right, ~25%): observer / agent-1 / agent-2 / agent-3  — equal small
+#
+# Strategy: build the layout in a NEW kitty tab via --type=tab. The launch
+# terminal stays in the original tab and never participates in the splits tree.
+# Natural splits give A=50%/B=25%/C=25%, then `resize-window` post-hoc shrinks
+# A by 25% (giving the freed space to B) for the final A=25%/B=50%/C=25%.
 do_hub_layout() {
-    local _role _name _model _effort _sflag
+    local _name _model _effort _sflag
 
     get_entry() {
         local role="$1"
@@ -315,7 +346,7 @@ do_hub_layout() {
         echo ""
     }
 
-    local e_intake e_master e_arch e_anal e_verif e_crit e_obs
+    local e_intake e_master e_arch e_anal e_verif e_crit e_obs e_tracker
     e_intake=$(get_entry intake)
     e_master=$(get_entry master)
     e_arch=$(get_entry architect)
@@ -323,6 +354,7 @@ do_hub_layout() {
     e_verif=$(get_entry verifier)
     e_crit=$(get_entry critic)
     e_obs=$(get_entry observer)
+    e_tracker=$(get_entry tracker)
 
     local agent_entries=()
     for _name in "${!SESSION_ROLE[@]}"; do
@@ -336,58 +368,131 @@ do_hub_layout() {
 
     [[ -z "$e_intake" ]] && { echo "ERROR: hub layout requires intake session." >&2; exit 1; }
 
-    echo ""
-    echo "  Hub layout:"
-    echo "  Col A (left):   analyst / verifier / critic / architect"
-    echo "  Col B (center): intake (top) / MASTER (bottom) — equal size"
-    echo "  Col C (right):  observer / agent-1 / agent-2 / agent-3"
-    echo ""
-
-    # Left col sessions in order: analyst → verifier → critic → architect
+    # Left col sessions: analyst → verifier → critic → architect
     local left_sessions=()
     for e in "$e_anal" "$e_verif" "$e_crit" "$e_arch"; do
         [[ -n "$e" ]] && left_sessions+=("$e")
     done
 
-    local id_left_anchor id_intake id_obs id_left_prev id_right_prev
+    echo ""
+    echo "  Hub layout (A=25% · B=50% · C=25%) — opens in a NEW kitty tab"
+    echo "  Col A : ${#left_sessions[@]} session(s) — analyst/verifier/critic/architect"
+    echo "  Col B : intake + master (top) + tracker (bottom)"
+    echo "  Col C : observer + agents"
+    echo ""
 
-    # 1. Launch first left-col session (fills screen)
-    id_left_anchor=""
-    local left_anchor_title=""
+    local id_la="" id_in="" id_ob=""
+
+    # 1. Col A anchor (or intake if no left sessions): open in a NEW tab.
+    #    --type=tab gives us a clean splits tree with no launch terminal in it.
+    local anchor_entry
     if [[ ${#left_sessions[@]} -gt 0 ]]; then
-        IFS=: read -r _name _model _effort _sflag <<< "${left_sessions[0]}"
-        printf "  launching %-22s %s/%s\n" "$_name" "$_model" "$_effort"
-        id_left_anchor=$(do_launch "$_name" "$_model" "$_effort" "$_sflag")
-        left_anchor_title="$_name"  # store title for reliable equalization matching
+        anchor_entry="${left_sessions[0]}"
+    else
+        anchor_entry="$e_intake"
+    fi
+    IFS=: read -r _name _model _effort _sflag <<< "$anchor_entry"
+    printf "  launching %-22s %s/%s (new tab)\n" "$_name" "$_model" "$_effort"
+    id_la=$(kitty @ "${KITTY_TO[@]}" launch \
+        --type=tab \
+        --tab-title="${PROJECT}-roster" \
+        --title="$_name" \
+        --cwd="$CWD" \
+        -- bash -ic "cd '$CWD' && claude-chat $_sflag $_name --model $_model --effort $_effort; exec bash")
+
+    # If the anchor IS intake (no left col), wire id_in and skip step 2.
+    if [[ ${#left_sessions[@]} -eq 0 ]]; then
+        id_in="$id_la"
+        id_la=""
     fi
 
-    # 2. vsplit left anchor → intake (center col)
-    IFS=: read -r _name _model _effort _sflag <<< "$e_intake"
-    focus "$id_left_anchor"
-    printf "  launching %-22s %s/%s\n" "$_name" "$_model" "$_effort"
-    id_intake=$(do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=vsplit)
+    sleep 0.3
+    # Force the new tab into splits layout. New tabs default to whatever's first
+    # in enabled_layouts (often `tall`), where vsplit/hsplit are silently ignored.
+    # `action --match "id:WIN" goto_layout splits` runs in the matched window's
+    # tab context — reliable. `goto-layout splits` (without --match) targets the
+    # rendered-active tab and silently no-ops on the launch terminal's tab.
+    local target_id="${id_la:-$id_in}"
+    kitty @ "${KITTY_TO[@]}" action --match "id:$target_id" goto_layout splits 2>/dev/null || true
+    sleep 0.2
 
-    # 3. vsplit intake → observer (right col anchor)
-    id_obs=""
+    # 2. vsplit col A anchor → intake (col B). No bias — natural 50/50.
+    # Chained --bias splits behave inconsistently in the splits layout
+    # (second bias often collapses to hsplit). We use natural splits and
+    # resize at the end via resize-window in a clean tab (which works,
+    # unlike when the launch terminal was in the splits tree).
+    if [[ -n "$id_la" ]]; then
+        IFS=: read -r _name _model _effort _sflag <<< "$e_intake"
+        focus "$id_la"
+        printf "  launching %-22s %s/%s\n" "$_name" "$_model" "$_effort"
+        id_in=$(do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=vsplit)
+    fi
+
+    # 3. vsplit intake → observer (col C). Natural 50/50 of B → A=50%, B=25%, C=25%.
     if [[ -n "$e_obs" ]]; then
         IFS=: read -r _name _model _effort _sflag <<< "$e_obs"
-        focus "$id_intake"
+        focus "$id_in"
         printf "  launching %-22s %s/%s\n" "$_name" "$_model" "$_effort"
-        id_obs=$(do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=vsplit)
+        id_ob=$(do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=vsplit)
     fi
 
-    # 4. hsplit intake → master (below intake, equal size)
+    # 4. hsplit intake → master (below intake, equal height in col B).
+    local id_master=""
     if [[ -n "$e_master" ]]; then
         IFS=: read -r _name _model _effort _sflag <<< "$e_master"
-        focus "$id_intake"
+        focus "$id_in"
+        printf "  launching %-22s %s/%s\n" "$_name" "$_model" "$_effort"
+        id_master=$(do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=hsplit)
+    fi
+
+    # 4.5. hsplit master → tracker (below master, natural 50/50 within the lower half).
+    # Tracker is the bookkeeper for the whole roster — sits adjacent to master in Col B.
+    # Natural hsplit; hand-resize in kitty if you want master larger than tracker.
+    if [[ -n "$e_tracker" && -n "$id_master" ]]; then
+        IFS=: read -r _name _model _effort _sflag <<< "$e_tracker"
+        focus "$id_master"
         printf "  launching %-22s %s/%s\n" "$_name" "$_model" "$_effort"
         do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=hsplit > /dev/null
     fi
 
-    # Balanced column split: for N panes, split the anchor in half first,
-    # then each half — gives equal heights vs linear splitting which makes
-    # the first pane 50%, second 25%, etc.
-    # balanced_col <anchor_id> entry1 entry2 ...
+    # 4.7. Equalize Col B vertical heights to equal thirds (33%/33%/33%).
+    # After natural hsplis: intake=50%, master=25%, tracker=25%.
+    # Two passes:
+    #   1. Shrink intake by H/6  → intake=33%, master grows to ~42%
+    #   2. Shrink master by H/12 → master=33%, freed space flows to tracker → tracker=33%
+    if [[ -n "$e_tracker" && -n "$id_in" && -n "$id_master" ]]; then
+        sleep 0.2
+        local total_rows
+        total_rows=$(kitty @ "${KITTY_TO[@]}" ls 2>/dev/null | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    for os_win in data:
+        for tab in os_win.get('tabs', []):
+            if any(w.get('id') == int('$id_in') for w in tab.get('windows', [])):
+                print(os_win.get('rows', 60))
+                sys.exit()
+except Exception:
+    pass
+print(60)
+" 2>/dev/null || echo 60)
+        local shrink_intake=$(( total_rows / 6 ))
+        local shrink_master=$(( total_rows / 12 ))
+        if [[ $shrink_intake -gt 0 ]]; then
+            kitty @ "${KITTY_TO[@]}" resize-window \
+                --match "id:$id_in" \
+                --axis vertical \
+                --increment "-$shrink_intake" 2>/dev/null || true
+        fi
+        if [[ $shrink_master -gt 0 ]]; then
+            kitty @ "${KITTY_TO[@]}" resize-window \
+                --match "id:$id_master" \
+                --axis vertical \
+                --increment "-$shrink_master" 2>/dev/null || true
+        fi
+    fi
+
+    # Balanced recursive hsplit so N panes get equal heights in a column.
     balanced_col() {
         local anchor="$1"; shift
         local entries=("$@")
@@ -400,74 +505,55 @@ do_hub_layout() {
             do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=hsplit > /dev/null
             return
         fi
-        # Split anchor in half: top = anchor (first half of entries), bottom = new window
         local mid=$(( n / 2 ))
         local bottom_entries=("${entries[@]:$mid}")
         local top_entries=("${entries[@]:0:$mid}")
-        # Launch the bottom group's first session
         focus "$anchor"
         IFS=: read -r _name _model _effort _sflag <<< "${bottom_entries[0]}"
         printf "  launching %-22s %s/%s\n" "$_name" "$_model" "$_effort"
         local bottom_id
         bottom_id=$(do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=hsplit)
-        # Recurse into top half (remaining top entries below anchor)
         balanced_col "$anchor" "${top_entries[@]}"
-        # Recurse into bottom half (remaining bottom entries below bottom_id)
         balanced_col "$bottom_id" "${bottom_entries[@]:1}"
     }
 
-    # 5. Balanced split: left col (analyst is anchor, then verifier/critic/architect)
-    balanced_col "$id_left_anchor" "${left_sessions[@]:1}"
-
-    # 6. Balanced split: right col (observer is anchor, then agents)
-    if [[ -n "$id_obs" ]]; then
-        balanced_col "$id_obs" "${agent_entries[@]}"
+    # 5. Fill col A: remaining left sessions below anchor (balanced equal heights).
+    if [[ ${#left_sessions[@]} -gt 1 && -n "$id_la" ]]; then
+        balanced_col "$id_la" "${left_sessions[@]:1}"
     fi
 
-    # 7. Close the launch terminal BEFORE measuring/resizing — it's the 11th
-    # window in the layout and skews measurements + competes for focus.
-    kitty @ "${KITTY_TO[@]}" close-window --match "id:${KITTY_WINDOW_ID}" 2>/dev/null || true
-    sleep 0.5  # let kitty reflow after close before measuring
+    # 6. Fill col C: agents below observer (balanced equal heights).
+    if [[ -n "$id_ob" && ${#agent_entries[@]} -gt 0 ]]; then
+        balanced_col "$id_ob" "${agent_entries[@]}"
+    fi
 
-    # 8. Equalize column widths: shrink A until A = C.
-    # `resize-window` returns "Could not resize" in splits layout — use
-    # `action resize_window narrower` which works (adjusts 1 cell per call).
-    # A is the leftmost column and always starts widest (50%). Narrowing A
-    # moves its right divider left, giving the extra width to B (center).
-    local ls_json w_a w_c delta_a
-    ls_json=$(kitty @ "${KITTY_TO[@]}" ls 2>/dev/null || echo "[]")
-
-    _get_cols() {
-        local win_id="$1"
-        echo "$ls_json" | python3 -c "
+    # 7. Equalize widths: natural is A=50%, B=25%, C=25%. Target: A=25%, B=50%, C=25%.
+    # Shrink col A by ~25% of tab width — freed space goes to col B (its neighbor).
+    if [[ -n "$id_la" && -n "$id_in" ]]; then
+        sleep 0.2
+        local total_cols
+        total_cols=$(kitty @ "${KITTY_TO[@]}" ls 2>/dev/null | python3 -c "
 import sys, json
-data = json.load(sys.stdin)
-for os_win in data:
-    for tab in os_win.get('tabs', []):
-        for w in tab.get('windows', []):
-            if w['id'] == int('$win_id'):
-                print(w.get('columns', 0)); sys.exit()
-print(0)" 2>/dev/null || echo 0
-    }
-
-    w_a=$(_get_cols "$id_left_anchor")
-    w_c=$(_get_cols "$id_obs")
-    delta_a=$(( w_a - w_c ))
-
-    if [[ $delta_a -gt 0 && -n "$left_anchor_title" ]]; then
-        # Focus analyst explicitly, then run narrower WITHOUT --match so it applies
-        # to the truly focused window. `action --match` targets the tab context but
-        # resize_window still runs on the active window in that tab, not the matched one.
-        kitty @ "${KITTY_TO[@]}" focus-window --match "title:$left_anchor_title" 2>/dev/null || true
-        sleep 0.3
-        for (( i=0; i<delta_a; i++ )); do
-            kitty @ "${KITTY_TO[@]}" action resize_window narrower 2>/dev/null || break
-        done
-        # Return focus to intake when done
-        focus "$id_intake"
+try:
+    data = json.load(sys.stdin)
+    for os_win in data:
+        for tab in os_win.get('tabs', []):
+            if any(w.get('id') == int('$id_la') for w in tab.get('windows', [])):
+                print(os_win.get('columns', 200))
+                sys.exit()
+except Exception:
+    pass
+print(200)
+" 2>/dev/null || echo 200)
+        local shrink_by=$(( total_cols / 4 ))
+        kitty @ "${KITTY_TO[@]}" resize-window \
+            --match "id:$id_la" \
+            --axis horizontal \
+            --increment "-$shrink_by" 2>/dev/null || true
     fi
 
-    focus "$id_intake"
+    # Leave focus on intake (col B center).
+    [[ -n "$id_in" ]] && focus "$id_in"
 }
 
 # --- sequential layout (for --order or non-splits layouts) ---
@@ -520,9 +606,5 @@ fi
 
 echo ""
 echo "Done. Run /khimaira-bootstrap-roster${PREFIX:+ --prefix ${PREFIX%%-}} inside $MASTER to wire the chat."
-# For non-hub layouts, close the launch terminal now. Hub layout closes it earlier (before resize).
-if [[ "$OPT_LAYOUT" != "hub" ]]; then
-    echo "Closing this launch terminal in 2s..."
-    sleep 2
-    kitty @ "${KITTY_TO[@]}" close-window --match "id:${KITTY_WINDOW_ID}" 2>/dev/null || true
-fi
+sleep 0.5
+kitty @ "${KITTY_TO[@]}" close-window --match "id:${KITTY_WINDOW_ID}" 2>/dev/null || true

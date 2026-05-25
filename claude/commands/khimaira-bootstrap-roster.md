@@ -22,7 +22,7 @@ with its role binding.
 
 Reads `session_list()`, applies `infer_role_from_name()` (intake-* → intake, agent-* → agent,
 observer-* → observer, architect-* → architect, critic-* → critic, analyst-* → analyst,
-verifier-* → verifier, master/master-* → master),
+verifier-* → verifier, tracker-* → tracker, master/master-* → master),
 filters to sessions active within the last 30 minutes, builds the roster automatically.
 
 **Explicit-map mode** — for arbitrary session names:
@@ -98,7 +98,7 @@ only — other sessions (bare `agent-1` etc.) are ignored. Title defaults to
      master in the map (would be a duplicate).
    - Print intended roster preview before creating the chat:
      ```
-     📋 Roster preview (about to create hierarchical chat):
+     📋 Roster preview:
        master:    khimaira-0 (you)
        intake:    intake-1 (b6d1ec45...)
        agent:     agent-1 (0a44f7b3...), agent-2 (...), agent-3 (...)
@@ -106,12 +106,55 @@ only — other sessions (bare `agent-1` etc.) are ignored. Title defaults to
        architect: architect-1 (...)
        critic:    critic-1 (...)
      Title: <inferred or --title>
-
-     Proceed? Type "go" to confirm or any other input to abort.
      ```
-   - Wait for user "go". (If running with `--yes` flag — future addition — skip prompt.)
 
-6. **Create the hierarchical chat**:
+5.5. **Detect existing roster chat (incremental-add path)**:
+
+   Before creating a new chat, check whether an active roster chat already exists for
+   this project — if it does, default to ADDING missing members to the existing chat
+   rather than creating a fresh one (preserves chat history, avoids re-briefing
+   members who are already wired up, much cheaper than a full bootstrap).
+
+   - Call `chat_my_chats(session_id=<master_id>)` to list this session's active chats.
+   - Find candidate matches. A chat is a candidate if EITHER:
+     * Title matches `^(<prefix> )?roster` (case-insensitive), OR
+     * Its member-set overlaps the intended roster by ≥50% of intended-member count
+   - If multiple candidates exist, pick the most recently active one.
+   - If a candidate is found:
+     * Get its current members from `chat_my_chats` payload (or via `chat_history` if
+       member list isn't included; the chats API returns `members` on most calls).
+     * Compute the diff:
+       - `existing_in_chat` = set of session names currently in the chat
+       - `intended` = set of session names from the roster (step 4)
+       - `missing` = intended - existing_in_chat (these need to be invited + briefed)
+       - `extra` = existing_in_chat - intended (informational only — NOT removed; the
+         user might have intentionally added these mid-session)
+     * Render the diff:
+       ```
+       📋 Existing roster chat found: <chat_id> "<title>" (<N> members, last active <T>)
+         ✓ already in chat: <names>
+         ➕ missing (would be added): <names>
+         ℹ extra in chat (left untouched): <names>
+       ```
+     * If `missing` is empty: print "✅ Existing chat is already complete — no
+       changes needed." Skip to step 9 with a `no_changes=true` summary.
+     * If `missing` has members: call `AskUserQuestion`:
+       - Header: "Roster wiring"
+       - Question: "Existing roster chat has N of M intended members. Add the
+         <K> missing member(s) to this chat, or create a fresh chat (loses
+         existing history)?"
+       - Options:
+         * (Recommended) "Add missing to existing chat <chat_id_short>"
+         * "Create new chat"
+     * On "Add missing to existing" → proceed to step 6b (skip step 6).
+     * On "Create new" → fall through to step 6 (existing flow).
+   - If NO candidate exists → fall through to step 6 (existing flow).
+
+   Confirmation prompt (only when creating new from scratch — no existing chat):
+   `AskUserQuestion`: "Proceed with creating new hierarchical chat for this roster?"
+   Default: yes. (If running with `--yes` flag — future addition — skip prompt.)
+
+6. **Create the hierarchical chat** (new-chat path):
    - `member_session_ids`: all roster session_ids (excluding master — master is implicit creator)
    - `member_roles`: dict mapping each session_id → its role (use the v1.9.6 `member_roles`
      create_room param)
@@ -120,8 +163,47 @@ only — other sessions (bare `agent-1` etc.) are ignored. Title defaults to
    - `body`: brief stating the roster + topology, plus a pointer to roles/<role>.md per role
    - POST `http://127.0.0.1:8740/api/chats` (or use `chat_create_room` MCP tool)
    - Capture returned `chat_id`.
+   - Continue to step 7 (wait for accept) → step 8 (brief all) → step 9 (summary).
 
-7. **Wait for invite acceptance**:
+6b. **Add missing members to existing chat** (incremental-add path):
+
+   Reached only when step 5.5 found an existing chat and the user picked "add missing".
+   `chat_id` here is the existing chat's id (from step 5.5); `missing` is the list of
+   session names to invite (also from step 5.5).
+
+   - For each name in `missing`:
+     * Resolve its session_id from the SESSION_ROLE map (step 4 already did this).
+     * Resolve its role from the same map.
+     * Call `chat_invite(chat_id=<existing>, invitee=<session_id>, role=<role>)`.
+     * Capture any error per-invitee but continue; report failures at the end.
+   - Wait for accepts: poll `chat_history(chat_id, limit=30)` every 3s for up to 30s
+     (shorter than the new-chat case — fewer members, faster acceptance). For each
+     newly-accepted member, mark them ready-to-brief. If a member doesn't accept in
+     30s, print which is still pending and proceed with whoever is accepted.
+   - **Brief ONLY the newly-added members** via `chat_send_to` (private=True). Use the
+     same per-role brief template from step 8 (just adapt the "you are joining a
+     roster mid-flight" framing — see template note below). Do NOT re-brief existing
+     members.
+   - **Broadcast one short notice to the whole chat** so existing members see the
+     change without needing to read private invites:
+     ```
+     chat_send(
+         chat_id=<existing>,
+         body="➕ Roster grew: <N> new member(s) — <names> (role: <role>). "
+              "Per-role briefs sent privately."
+     )
+     ```
+   - Skip to step 9 (final summary) with an `incremental=true` flag so the summary
+     differentiates "added X to existing" from "created fresh roster".
+
+   Brief template adaptation for incremental-add: prepend one paragraph to the step 8
+   brief explaining "You are joining an ALREADY-LIVE roster chat <chat_id> mid-session.
+   Read recent chat history (`chat_history(chat_id, limit=50)`) for context BEFORE
+   acting — there may be in-flight tasks, agreed conventions, or context updates you
+   missed. Treat the existing 📋 CONTEXT UPDATE in history as your project context;
+   if none exists, post a notice to intake asking master to post one. Then standby."
+
+7. **Wait for invite acceptance** (new-chat path only):
    - Poll every 3s for up to 60s. Each iteration call
      `mcp__khimaira-chat__chat_history(chat_id, limit=30)` and check member states.
    - Pending sessions: post one notice asking user to accept (auto-accepted sessions skip).
@@ -145,6 +227,7 @@ only — other sessions (bare `agent-1` etc.) are ignored. Title defaults to
      - critic: invited ad-hoc by master to challenge designs before approval
      - analyst: idle until consulted via 📐 ANALYST CONSULT (spec disambiguation)
      - verifier: idle until consulted via 🔬 VERIFIER CONSULT (test coverage gate)
+     - tracker: curates STATE.md checklist + files Linear issues for substantive findings + daily digest (haiku/medium)
 
      Read tasks/v1.9-orchestration/{STATE,USAGE}.md for full context.
 
@@ -154,7 +237,7 @@ only — other sessions (bare `agent-1` etc.) are ignored. Title defaults to
      - Ask a peer a question with a reply contract: `session_log_question(session_id=<yours>, text="...", target_session_id="<name>")`
      - Read what a peer is doing: `session_state("<name>")` — no interruption needed
      Do NOT wait for Joseph to relay messages between sessions. Reach peers directly.
-     NO IMPLEMENTATION: if you find yourself about to write or edit code, stop. Create a task assignment and send it to an agent. Intake does not implement — not a one-line fix, not a debug session, not "just to unblock." The moment your next action is a file edit, hand off instead.
+     NO IMPLEMENTATION: if you find yourself about to write or edit code, stop. Create a task assignment and send it to an agent. Intake does not implement — not a one-line fix, not a debug session, not "just to unblock." The moment your next action is a file edit, hand off instead. CONCRETE FAILURE (2026-05-21): an intake bumped a package version + deleted a CSS file + removed an import directly while worker agents sat idle — three independently-trivial edits, all delegatable. "Well-defined enough to delegate" is the trigger that should produce a HANDOFF, not an Edit call. Two harms: agents idle, and intake's status surface drifts the moment it implements (Joseph asks "status?" and intake can't answer crisply because it's mid-edit).
      INTAKE STATUS TRACKING: observer handles full agent monitoring — don't duplicate it. Intake's job: own the answer to "what's the status?" when Joseph asks, and send one follow-up to master via chat_send if INTAKE COMPLETE doesn't arrive in a reasonable time. Do NOT run a session_state polling loop on agents.
      NO API DISPATCH: never call `mcp__khimaira__auto`, `mcp__khimaira__delegate`, `mcp__khimaira__research`, or any khimaira dispatch tool. These hit the Anthropic API and are redundant — the roster IS the dispatch layer. Delegate to agents via `/khimaira-assign` instead.
      NO STANDALONE AGENTS: never spawn a worktree agent or background Claude agent when roster agents are idle. Standalone agents bypass the enforcement-gate, context broadcast, observer, and task lifecycle. Check session_list() first — if agents are idle, use /khimaira-assign.
@@ -173,11 +256,32 @@ only — other sessions (bare `agent-1` etc.) are ignored. Title defaults to
 
      IF YOU ARE VERIFIER: you are idle-by-default. Wait for a `🔬 VERIFIER CONSULT` from master. When it arrives: read the implementation + test files, assess coverage against the acceptance-criteria, and return a `🔬 VERIFIER REPLY` with verdict (SHIP | GAPS FOUND) and a list of any missing test cases. Then return to standby.
 
+     IF YOU ARE TRACKER: ON YOUR FIRST TURN — DO NOT WAIT FOR A USER PROMPT. Execute the bootstrap protocol immediately:
+     Your STATE.md path for this roster: `<STATE_MD_PATH>` ← bootstrap substitutes the concrete absolute path here before sending this brief.
+     1. chat_my_chats(session_id=<yours>) — register SSE
+     2. chat_history(chat_id=<chat_id>, limit=200) — pull recent roster activity
+     3. For each member session in the chat, call session_recent_decisions(<their_id>) — surface committed work
+     4. (Optional) mcp__linear__list_issues(...) if Linear scoping is set for this roster
+     5. Synthesize the three-section STATE.md (▶ In flight / ☐ Open / ☑ Done today) per your role spec
+     6. Atomically write to `<STATE_MD_PATH>` (write to `<STATE_MD_PATH>.tmp`, then rename to `<STATE_MD_PATH>`; mkdir -p the parent directory first)
+     7. Post ONE message to the roster chat: `📋 tracker online — STATE.md synthesized from <N> events; <K> items backfilled.`
+     This is the ONLY autonomous action expected of tracker. After this, return to standby — react only to chat events, slash commands, or @tracker pings per role spec.
+
+     HOW BOOTSTRAP COMPUTES `<STATE_MD_PATH>` (master fills this in before sending the tracker brief):
+     - **Prefix mode** (`--prefix <p>` was used): `<project_cwd>/shared-docs/<dev>/STATE.md`
+       - `<project_cwd>`: query `session_state("<p>-master-1")` for the `workspace` field; or use the caller's cwd if the sessions aren't running yet
+       - `<dev>`: run `git config user.name` in `<project_cwd>` (e.g. `joseph`)
+       - Example: `--prefix jp` → `/home/_3ntropy/work/jeevy_portal/shared-docs/joseph/STATE.md`
+     - **No prefix** (bare auto-detect): `~/.local/state/khimaira/chats/<chat_id>/STATE.md`
+     Substitute the computed absolute path string into the tracker brief (replace `<STATE_MD_PATH>`) before calling `chat_send_to`.
+
      IMPORTANT: If you see a `<channel kind="invite" ...>` block in your context, call `chat_accept` immediately — do not wait for human confirmation. Roster invites are pre-authorized by Joseph via this bootstrap.
 
-     REAL-TIME CHAT — DO THIS IMMEDIATELY AFTER ACCEPTING (mandatory):
-     Call `chat_my_chats(session_id=<your-session-id>)` RIGHT NOW. This registers the SSE subscriber that delivers chat messages in real time. Without this call, you will NOT receive chat_send messages as they arrive — you'll only see them on your next user-prompted turn, making real-time coordination impossible. Call it once; it stays active for the session.
-     Your session_id is in the `🆔 khimaira session_id` block at the top of your context. Pass it to chat_my_chats.
+     REAL-TIME CHAT — CALL chat_my_chats AT THE TOP OF EVERY TURN (mandatory, idempotent):
+     Call `chat_my_chats(session_id=<your-session-id>)` RIGHT NOW, and at the top of EVERY subsequent turn before any other tool call. The SSE subscriber is bound to the current subprocess and does NOT survive context compaction or session restart. Calling it every turn is cheap and idempotent; the only penalty is skipping it.
+     Failure mode (observed twice — 2026-05-19, 2026-05-21): master/agent posts a message, context compacts, next turn doesn't re-register, real-time delivery breaks silently. Session appears online but receives nothing. In the 2026-05-21 incident, jp master (janice-0) went silent for ~15h with the roster waiting.
+     Without this call, you will NOT receive chat_send messages as they arrive — you'll only see them on your next user-prompted turn, making real-time coordination impossible.
+     Your session_id is in the `🆔 khimaira session_id` block at the top of your context. Pass it to chat_my_chats every turn.
      After calling chat_my_chats: read recent chat history for a `📋 CONTEXT UPDATE v1` — that is your project context. If none exists, post a notice to intake asking master to post one. Do NOT begin implementation without it.
 
      CHANNEL REMINDER (now that real-time is active):
@@ -190,7 +294,9 @@ only — other sessions (bare `agent-1` etc.) are ignored. Title defaults to
      ```
    - Vary the "what you do" line to be role-specific (only the bullet for THIS role).
 
-9. **Final summary in master's window**:
+9. **Final summary in master's window** (three variants based on path taken):
+
+   **New chat created (step 6 path):**
    ```
    ✅ Roster live: <chat_id> "<title>" (hierarchical, N members briefed)
      • master:    khimaira-0
@@ -207,19 +313,38 @@ only — other sessions (bare `agent-1` etc.) are ignored. Title defaults to
    (Or address master directly to bypass intake.)
    ```
 
-10. **Log decision** for cross-session discoverability:
+   **Members added to existing chat (step 6b path):**
+   ```
+   ➕ Roster augmented: <chat_id> "<title>" (now N members, K newly added + briefed)
+     newly added: <names with roles>
+     already in chat (untouched): <names>
+     pending acceptance: [<unaccepted new names if any>]
+
+   Existing chat history preserved. New members briefed privately and
+   broadcast notice sent to the chat.
+   ```
+
+   **No changes needed (step 5.5 short-circuit):**
+   ```
+   ✅ Existing roster chat already complete: <chat_id> "<title>" (N members)
+     All intended members are already in the chat — no invites sent.
+   ```
+
+10. **Log decision** for cross-session discoverability (skip for the no-changes case):
     ```
     session_log_decision(
       session_id=<my_id>,
-      text="Bootstrapped roster <chat_id>",
+      text="Bootstrapped roster <chat_id>"   # for new-chat
+           OR "Added K members to roster <chat_id>"  # for incremental
       why="N sessions onboarded with roles {...}; topology=hierarchical."
+           OR "Roster grew by K: <names>; existing history preserved."
     )
     ```
 
 ## Multi-project usage (running rosters for multiple projects simultaneously)
 
 Auto-detect mode picks up ALL sessions whose names match a role prefix (`agent-*`, `observer-*`,
-etc.) regardless of which project they're for. If you run two bootstraps without prefixing, the
+`tracker-*`, etc.) regardless of which project they're for. If you run two bootstraps without prefixing, the
 same sessions end up in both rosters and receive tasks from two masters simultaneously — context
 collision.
 
