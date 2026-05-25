@@ -54,7 +54,7 @@ Every `seance_*` tool. Use these names directly with `ToolSearch(query="select:m
 bin/specter-test-chrome &          # launches Chrome on port 9223, isolated profile
 SPECTER_TEST_PORT=9223 uv run pytest packages/specter/tests/
 ```
-Without `SPECTER_TEST_PORT`, tests emit a DeprecationWarning and fall back to port 9222 — that path navigates Joseph's active tabs and is deprecated (hard-skip after 2026-05-30).
+Without `SPECTER_TEST_PORT`, integration tests skip. The fallback to port 9222 (Joseph's Chrome) is no longer supported.
 
 Specter has two equal-billed use cases. Both are first-class. The most common failure mode is treating it as debug-only and never reaching for it after shipping a UI change — that's how visual regressions leak past `tsc --noEmit`.
 
