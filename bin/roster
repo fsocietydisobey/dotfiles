@@ -339,6 +339,12 @@ do_3col_layout() {
 # Natural splits give A=50%/B=25%/C=25%, then `resize-window` post-hoc shrinks
 # A by 25% (giving the freed space to B) for the final A=25%/B=50%/C=25%.
 do_hub_layout() {
+    # Hub 4-column width percentages (tunable). Must sum to ~100.
+    # A=thinkers · B=coordination · C=leads+observer · D=agents
+    local HUB_COL_A_PCT=20  # thinkers (analyst/verifier/critic/architect)
+    local HUB_COL_B_PCT=33  # coordination (intake/master/tracker — widest)
+    local HUB_COL_C_PCT=27  # leads + observer (wider than agents)
+    local HUB_COL_D_PCT=20  # agents (narrowest)
     local _name _model _effort _sflag
 
     get_entry() {
@@ -364,35 +370,49 @@ do_hub_layout() {
     e_obs=$(get_entry observer)
     e_tracker=$(get_entry tracker)
 
-    local agent_entries=()
-    for _name in "${!SESSION_ROLE[@]}"; do
-        local _r="${SESSION_ROLE[$_name]}"
-        [[ "$_r" != "agent" && "$_r" != "backend-lead" && "$_r" != "data-lead" ]] && continue
-        _sflag=$(session_flag "$_name" "$_r")
-        [[ "$_sflag" == "skip" ]] && continue
-        IFS=: read -r _model _effort <<< "${SESSION_BUDGET[$_name]}"
-        agent_entries+=("$_name:$_model:$_effort:$_sflag")
-    done
-    agent_entries=($(printf '%s\n' "${agent_entries[@]}" | sort))
-
-    [[ -z "$e_intake" ]] && { echo "ERROR: hub layout requires intake session." >&2; exit 1; }
-
-    # Left col sessions: analyst → verifier → critic → architect
+    # Col A: thinkers
     local left_sessions=()
     for e in "$e_anal" "$e_verif" "$e_crit" "$e_arch"; do
         [[ -n "$e" ]] && left_sessions+=("$e")
     done
 
+    # Col C: leads (role *-lead, role-keyed — future leads inherit) + observer
+    local col_c_sessions=()
+    for _name in "${!SESSION_ROLE[@]}"; do
+        local _r="${SESSION_ROLE[$_name]}"
+        [[ "$_r" != *-lead ]] && continue
+        _sflag=$(session_flag "$_name" "$_r")
+        [[ "$_sflag" == "skip" ]] && continue
+        IFS=: read -r _model _effort <<< "${SESSION_BUDGET[$_name]}"
+        col_c_sessions+=("$_name:$_model:$_effort:$_sflag")
+    done
+    col_c_sessions=($(printf '%s\n' "${col_c_sessions[@]}" | sort))
+    [[ -n "$e_obs" ]] && col_c_sessions+=("$e_obs")  # observer goes in Col C with leads
+
+    # Col D: agents
+    local col_d_sessions=()
+    for _name in "${!SESSION_ROLE[@]}"; do
+        [[ "${SESSION_ROLE[$_name]}" != "agent" ]] && continue
+        _sflag=$(session_flag "$_name" "agent")
+        [[ "$_sflag" == "skip" ]] && continue
+        IFS=: read -r _model _effort <<< "${SESSION_BUDGET[$_name]}"
+        col_d_sessions+=("$_name:$_model:$_effort:$_sflag")
+    done
+    col_d_sessions=($(printf '%s\n' "${col_d_sessions[@]}" | sort))
+
+    [[ -z "$e_intake" ]] && { echo "ERROR: hub layout requires intake session." >&2; exit 1; }
+
     echo ""
-    echo "  Hub layout (A=25% · B=50% · C=25%) — opens in a NEW kitty tab"
+    echo "  Hub layout 4-col (A=$HUB_COL_A_PCT% · B=$HUB_COL_B_PCT% · C=$HUB_COL_C_PCT% · D=$HUB_COL_D_PCT%) — opens in a NEW kitty tab"
     echo "  Col A : ${#left_sessions[@]} session(s) — analyst/verifier/critic/architect"
-    echo "  Col B : intake + master (top) + tracker (bottom)"
-    echo "  Col C : observer + agents"
+    echo "  Col B : intake + master + tracker"
+    echo "  Col C : ${#col_c_sessions[@]} session(s) — leads + observer"
+    echo "  Col D : ${#col_d_sessions[@]} session(s) — agents"
     echo ""
 
-    local id_la="" id_in="" id_ob=""
+    local id_la="" id_in="" id_cc="" id_cd=""
 
-    # 1. Col A anchor (or intake if no left sessions): open in a NEW tab.
+    # 1. Col A anchor (or intake if no thinkers): open in a NEW tab.
     #    --type=tab gives us a clean splits tree with no launch terminal in it.
     local anchor_entry
     if [[ ${#left_sessions[@]} -gt 0 ]]; then
@@ -409,27 +429,20 @@ do_hub_layout() {
         --cwd="$CWD" \
         -- bash -ic "cd '$CWD' && claude-chat $_sflag $_name --model $_model --effort $_effort; exec bash")
 
-    # If the anchor IS intake (no left col), wire id_in and skip step 2.
+    # If the anchor IS intake (no thinkers), wire id_in and leave id_la empty.
     if [[ ${#left_sessions[@]} -eq 0 ]]; then
         id_in="$id_la"
         id_la=""
     fi
 
     sleep 0.3
-    # Force the new tab into splits layout. New tabs default to whatever's first
-    # in enabled_layouts (often `tall`), where vsplit/hsplit are silently ignored.
-    # `action --match "id:WIN" goto_layout splits` runs in the matched window's
-    # tab context — reliable. `goto-layout splits` (without --match) targets the
-    # rendered-active tab and silently no-ops on the launch terminal's tab.
+    # Force the new tab into splits layout before any vsplits.
     local target_id="${id_la:-$id_in}"
     kitty @ "${KITTY_TO[@]}" action --match "id:$target_id" goto_layout splits 2>/dev/null || true
     sleep 0.2
 
-    # 2. vsplit col A anchor → intake (col B). No bias — natural 50/50.
-    # Chained --bias splits behave inconsistently in the splits layout
-    # (second bias often collapses to hsplit). We use natural splits and
-    # resize at the end via resize-window in a clean tab (which works,
-    # unlike when the launch terminal was in the splits tree).
+    # 2. vsplit Col A anchor → intake (Col B anchor). Natural 50/50.
+    # We use natural splits + post-hoc resize-window (chained --bias is unreliable).
     if [[ -n "$id_la" ]]; then
         IFS=: read -r _name _model _effort _sflag <<< "$e_intake"
         focus "$id_la"
@@ -437,15 +450,36 @@ do_hub_layout() {
         id_in=$(do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=vsplit)
     fi
 
-    # 3. vsplit intake → observer (col C). Natural 50/50 of B → A=50%, B=25%, C=25%.
-    if [[ -n "$e_obs" ]]; then
-        IFS=: read -r _name _model _effort _sflag <<< "$e_obs"
+    # 3. vsplit intake → Col C anchor (first lead, or observer if no leads).
+    # Natural: A=50%, B=25%, C=25%.
+    local col_c_anchor="" col_c_fill=()
+    if [[ ${#col_c_sessions[@]} -gt 0 ]]; then
+        col_c_anchor="${col_c_sessions[0]}"
+        col_c_fill=("${col_c_sessions[@]:1}")
+    fi
+    if [[ -n "$col_c_anchor" ]]; then
+        IFS=: read -r _name _model _effort _sflag <<< "$col_c_anchor"
         focus "$id_in"
         printf "  launching %-22s %s/%s\n" "$_name" "$_model" "$_effort"
-        id_ob=$(do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=vsplit)
+        id_cc=$(do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=vsplit)
     fi
 
-    # 4. hsplit intake → master (below intake, equal height in col B).
+    # 4. vsplit Col C anchor → Col D anchor (first agent).
+    # Natural: A=50%, B=25%, C=12.5%, D=12.5%.
+    local col_d_anchor="" col_d_fill=()
+    if [[ ${#col_d_sessions[@]} -gt 0 ]]; then
+        col_d_anchor="${col_d_sessions[0]}"
+        col_d_fill=("${col_d_sessions[@]:1}")
+    fi
+    if [[ -n "$col_d_anchor" ]]; then
+        local _col_d_vsplit_anchor="${id_cc:-$id_in}"
+        IFS=: read -r _name _model _effort _sflag <<< "$col_d_anchor"
+        focus "$_col_d_vsplit_anchor"
+        printf "  launching %-22s %s/%s\n" "$_name" "$_model" "$_effort"
+        id_cd=$(do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=vsplit)
+    fi
+
+    # 5. Col B: master below intake, tracker below master.
     local id_master=""
     if [[ -n "$e_master" ]]; then
         IFS=: read -r _name _model _effort _sflag <<< "$e_master"
@@ -453,10 +487,6 @@ do_hub_layout() {
         printf "  launching %-22s %s/%s\n" "$_name" "$_model" "$_effort"
         id_master=$(do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=hsplit)
     fi
-
-    # 4.5. hsplit master → tracker (below master, natural 50/50 within the lower half).
-    # Tracker is the bookkeeper for the whole roster — sits adjacent to master in Col B.
-    # Natural hsplit; hand-resize in kitty if you want master larger than tracker.
     if [[ -n "$e_tracker" && -n "$id_master" ]]; then
         IFS=: read -r _name _model _effort _sflag <<< "$e_tracker"
         focus "$id_master"
@@ -464,8 +494,8 @@ do_hub_layout() {
         do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=hsplit > /dev/null
     fi
 
-    # 4.7. Equalize Col B vertical heights to equal thirds (33%/33%/33%).
-    # After natural hsplis: intake=50%, master=25%, tracker=25%.
+    # 5.5. Equalize Col B vertical heights to equal thirds (33%/33%/33%).
+    # After natural hsplits: intake=50%, master=25%, tracker=25%.
     # Two passes:
     #   1. Shrink intake by H/6  → intake=33%, master grows to ~42%
     #   2. Shrink master by H/12 → master=33%, freed space flows to tracker → tracker=33%
@@ -526,18 +556,34 @@ print(60)
         balanced_col "$bottom_id" "${bottom_entries[@]:1}"
     }
 
-    # 5. Fill col A: remaining left sessions below anchor (balanced equal heights).
+    # 6. Fill Col A: remaining thinkers below anchor (balanced equal heights).
     if [[ ${#left_sessions[@]} -gt 1 && -n "$id_la" ]]; then
         balanced_col "$id_la" "${left_sessions[@]:1}"
     fi
 
-    # 6. Fill col C: agents below observer (balanced equal heights).
-    if [[ -n "$id_ob" && ${#agent_entries[@]} -gt 0 ]]; then
-        balanced_col "$id_ob" "${agent_entries[@]}"
+    # 7. Fill Col C: remaining leads + observer below anchor (balanced equal heights).
+    if [[ ${#col_c_fill[@]} -gt 0 && -n "$id_cc" ]]; then
+        balanced_col "$id_cc" "${col_c_fill[@]}"
     fi
 
-    # 7. Equalize widths: natural is A=50%, B=25%, C=25%. Target: A=25%, B=50%, C=25%.
-    # Shrink col A by ~25% of tab width — freed space goes to col B (its neighbor).
+    # 8. Fill Col D: remaining agents below anchor (balanced equal heights).
+    if [[ ${#col_d_fill[@]} -gt 0 && -n "$id_cd" ]]; then
+        balanced_col "$id_cd" "${col_d_fill[@]}"
+    fi
+
+    # 9. Equalize column widths to HUB_COL_*_PCT targets.
+    # Natural widths after 4 sequential vsplits: A=50%, B=25%, C=12.5%, D=12.5%.
+    # Derived increments (exact for the nested-sibling split tree):
+    #   Step 1: resize A → HUB_COL_A_PCT
+    #     incr_a = total_cols * (HUB_COL_A_PCT - 50) / 100   (negative = shrink)
+    #   Step 2: resize B within [B|C|D] group → HUB_COL_B_PCT
+    #     After step 1, B = (100-HUB_COL_A_PCT)/2 %. incr_b brings it to target.
+    #     incr_b = total_cols * (2*HUB_COL_B_PCT - 100 + HUB_COL_A_PCT) / 200
+    #   Step 3: resize C within [C|D] group → HUB_COL_C_PCT
+    #     After step 2, C = D = (HUB_COL_C_PCT+HUB_COL_D_PCT)/2 %. incr_c fixes split.
+    #     incr_c = total_cols * (HUB_COL_C_PCT - HUB_COL_D_PCT) / 200
+    # Verified: A=20,B=33,C=27,D=20 on 200-col terminal → incr_a=-60, incr_b=-14, incr_c=+7.
+    # Requires Col A present; if no thinkers (id_la="") all 4 cols stay at natural widths.
     if [[ -n "$id_la" && -n "$id_in" ]]; then
         sleep 0.2
         local total_cols
@@ -554,11 +600,21 @@ except Exception:
     pass
 print(200)
 " 2>/dev/null || echo 200)
-        local shrink_by=$(( total_cols / 4 ))
-        kitty @ "${KITTY_TO[@]}" resize-window \
-            --match "id:$id_la" \
-            --axis horizontal \
-            --increment "-$shrink_by" 2>/dev/null || true
+        local incr_a=$(( total_cols * (HUB_COL_A_PCT - 50) / 100 ))
+        local incr_b=$(( total_cols * (2 * HUB_COL_B_PCT - 100 + HUB_COL_A_PCT) / 200 ))
+        local incr_c=$(( total_cols * (HUB_COL_C_PCT - HUB_COL_D_PCT) / 200 ))
+        if [[ $incr_a -ne 0 ]]; then
+            kitty @ "${KITTY_TO[@]}" resize-window \
+                --match "id:$id_la" --axis horizontal --increment "$incr_a" 2>/dev/null || true
+        fi
+        if [[ $incr_b -ne 0 ]]; then
+            kitty @ "${KITTY_TO[@]}" resize-window \
+                --match "id:$id_in" --axis horizontal --increment "$incr_b" 2>/dev/null || true
+        fi
+        if [[ -n "$id_cc" && $incr_c -ne 0 ]]; then
+            kitty @ "${KITTY_TO[@]}" resize-window \
+                --match "id:$id_cc" --axis horizontal --increment "$incr_c" 2>/dev/null || true
+        fi
     fi
 
     # Leave focus on intake (col B center).
