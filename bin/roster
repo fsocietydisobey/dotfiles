@@ -42,14 +42,14 @@ set -euo pipefail
 # --- role lookups ---
 role_model()  { case "$1" in master|architect|analyst) echo opus ;; observer|tracker) echo haiku ;; *) echo sonnet ;; esac; }
 role_effort() { case "$1" in architect) echo max ;; master) echo high ;; observer) echo low ;; *) echo medium ;; esac; }
-role_tier()   { case "$1" in master) echo 1 ;; architect|analyst|verifier) echo 2 ;; intake) echo 3 ;; agent) echo 4 ;; critic) echo 5 ;; observer) echo 6 ;; tracker) echo 7 ;; *) echo 4 ;; esac; }
+role_tier()   { case "$1" in master) echo 1 ;; architect|analyst|verifier) echo 2 ;; intake) echo 3 ;; backend-lead|data-lead) echo 3 ;; agent) echo 4 ;; critic) echo 5 ;; observer) echo 6 ;; tracker) echo 7 ;; *) echo 4 ;; esac; }
 # Column assignment:
 #   Col 1 (left, tall): master, intake, architect, analyst, verifier — primary/thinkers
 #   Col 2 (right, stacked): agents                                   — executors, always last
 #   Passive (observer, critic) go at bottom of col 1
 role_col() {
     case "$1" in
-        agent)    echo 2 ;;
+        agent|backend-lead|data-lead) echo 2 ;;
         *)        echo 1 ;;  # everyone else in col 1; passive roles sort to bottom via tier
     esac
 }
@@ -57,7 +57,7 @@ role_col() {
 infer_role() {
     local name="$1" prefix="$2"
     local stripped="${name#"$prefix"}"
-    echo "${stripped%%-*}"
+    echo "${stripped%-*}"
 }
 
 # --- parse args ---
@@ -66,6 +66,7 @@ OPT_PREFIX=""; OPT_MASTER=""; OPT_INTAKE=""
 OPT_AGENTS=3
 OPT_ANALYST=true; OPT_VERIFIER=true; OPT_TRACKER=true
 OPT_OBSERVER=true; OPT_ARCHITECT=true; OPT_CRITIC=true
+OPT_BACKEND_LEAD=false; OPT_DATA_LEAD=false
 OPT_LAYOUT="splits"; OPT_ORDER=""; OPT_CWD=""
 declare -A FORCE_INCLUDE
 
@@ -86,8 +87,12 @@ while [[ $# -gt 0 ]]; do
         --no-observer)  OPT_OBSERVER=false; unset "FORCE_INCLUDE[observer]"; shift ;;
         --architect)    OPT_ARCHITECT=true; FORCE_INCLUDE[architect]=1; shift ;;
         --no-architect) OPT_ARCHITECT=false; unset "FORCE_INCLUDE[architect]"; shift ;;
-        --critic)       OPT_CRITIC=true;   FORCE_INCLUDE[critic]=1;    shift ;;
-        --no-critic)    OPT_CRITIC=false;  unset "FORCE_INCLUDE[critic]"; shift ;;
+        --critic)           OPT_CRITIC=true;        FORCE_INCLUDE[critic]=1;        shift ;;
+        --no-critic)        OPT_CRITIC=false;       unset "FORCE_INCLUDE[critic]";  shift ;;
+        --backend-lead)     OPT_BACKEND_LEAD=true;  FORCE_INCLUDE[backend-lead]=1;  shift ;;
+        --no-backend-lead)  OPT_BACKEND_LEAD=false; unset "FORCE_INCLUDE[backend-lead]"; shift ;;
+        --data-lead)        OPT_DATA_LEAD=true;     FORCE_INCLUDE[data-lead]=1;     shift ;;
+        --no-data-lead)     OPT_DATA_LEAD=false;    unset "FORCE_INCLUDE[data-lead]"; shift ;;
         --layout)       OPT_LAYOUT="$2";   shift 2 ;;
         --order)        OPT_ORDER="$2";    shift 2 ;;
         --cwd)          OPT_CWD="$2";      shift 2 ;;
@@ -137,7 +142,9 @@ $OPT_ARCHITECT && add_session "${PREFIX}architect-1" architect
 $OPT_CRITIC    && add_session "${PREFIX}critic-1"    critic
 $OPT_ANALYST   && add_session "${PREFIX}analyst-1"   analyst
 $OPT_VERIFIER  && add_session "${PREFIX}verifier-1"  verifier
-$OPT_TRACKER   && add_session "${PREFIX}tracker-1"   tracker
+$OPT_TRACKER       && add_session "${PREFIX}tracker-1"       tracker
+$OPT_BACKEND_LEAD  && add_session "${PREFIX}backend-lead-1"  backend-lead
+$OPT_DATA_LEAD     && add_session "${PREFIX}data-lead-1"     data-lead
 
 # --- resolve which sessions to launch (resume skip logic) ---
 declare -A KNOWN_SESSIONS
@@ -232,8 +239,9 @@ do_3col_layout() {
     get_agents() {
         local agents=()
         for name in "${!SESSION_ROLE[@]}"; do
-            [[ "${SESSION_ROLE[$name]}" != "agent" ]] && continue
-            local sflag; sflag=$(session_flag "$name" "agent")
+            local r="${SESSION_ROLE[$name]}"
+            [[ "$r" != "agent" && "$r" != "backend-lead" && "$r" != "data-lead" ]] && continue
+            local sflag; sflag=$(session_flag "$name" "$r")
             [[ "$sflag" == "skip" ]] && { printf "  %-22s skipped\n" "$name"; continue; }
             IFS=: read -r model effort <<< "${SESSION_BUDGET[$name]}"
             agents+=("$name:$model:$effort:$sflag")
@@ -358,8 +366,9 @@ do_hub_layout() {
 
     local agent_entries=()
     for _name in "${!SESSION_ROLE[@]}"; do
-        [[ "${SESSION_ROLE[$_name]}" != "agent" ]] && continue
-        _sflag=$(session_flag "$_name" "agent")
+        local _r="${SESSION_ROLE[$_name]}"
+        [[ "$_r" != "agent" && "$_r" != "backend-lead" && "$_r" != "data-lead" ]] && continue
+        _sflag=$(session_flag "$_name" "$_r")
         [[ "$_sflag" == "skip" ]] && continue
         IFS=: read -r _model _effort <<< "${SESSION_BUDGET[$_name]}"
         agent_entries+=("$_name:$_model:$_effort:$_sflag")
