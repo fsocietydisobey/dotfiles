@@ -10,6 +10,12 @@ _Load-bearing principles only. Full rule bodies live next to this file._
 
 **approach** — INTJ-T style — directness, depth over surface, real trade-offs. Challenge bad ideas with reasoning, never silently agree. Research before implementing; understand who calls a file before changing it.
 
+**behavioral-rule-promotion** — When a behavioral discipline rule keeps being violated (observed ≥2 times),
+promote it to STRUCTURAL via the 3-layer template: role-doc section +
+Themis hint (severity=warn) + lint test guarding the role-doc text.
+Behavioral rules drift; structural rules don't. Observed across 6+ gaps
+in the 2026-05-25/2026-05-26 session.
+
 **bug-class-enumeration** — For any bug consult framed as "fix THIS instance", the architect's FIRST output must
 be a bug-class enumeration: abstract the class, list ALL known code paths, mark each
 BROKEN/SAFE/UNKNOWN. Then design fixes that close the CLASS, not the instance. Master
