@@ -160,6 +160,21 @@ for s in (data.get('sessions', data) if isinstance(data,dict) else data):
 " 2>/dev/null || true)
 fi
 
+# Resume mode: auto-add any running *-lead session to the pool even without an
+# explicit flag. Matches "resume = restore the live roster" semantics.
+# Role-keyed via *-lead glob — future leads (devops-lead, etc.) inherit.
+# Start mode is unchanged: leads remain opt-in via --backend-lead/--data-lead.
+if [[ "$MODE" == "resume" ]]; then
+    for sname in "${!KNOWN_SESSIONS[@]}"; do
+        [[ -n "$PREFIX" && "$sname" != "$PREFIX"* ]] && continue
+        _resume_role=$(infer_role "$sname" "$PREFIX")
+        [[ "$_resume_role" != *-lead ]] && continue
+        [[ -n "${SESSION_ROLE[$sname]:-}" ]] && continue
+        add_session "$sname" "$_resume_role"
+        echo "  + resume auto-detected lead: $sname ($_resume_role)"
+    done
+fi
+
 # Determine effective flag (resume vs fresh) for each session
 session_flag() {
     local name="$1" role="$2"
