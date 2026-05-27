@@ -39,7 +39,7 @@ If domain is `"general"`:
 ```
 ⚠️ /khimaira-distill is for domain-lead sessions only.
 This session ("SESSION_NAME") doesn't match a domain-lead pattern (backend-lead, frontend-lead, data-lead, devops-lead).
-Set a lead session name first: mcp__khimaira__session_set_name(session_id, "jp-frontend-lead-1")
+Set a lead session name first: mcp__khimaira__session_set_name(session_id, "<project>-frontend-lead-1")
 ```
 Then stop.
 
@@ -53,7 +53,16 @@ print(detect_project('CWD_HERE'))
 ```
 (substitute actual cwd)
 
-Build: `qualified_domain = "<project>:<domain>"` if project is non-empty and not `"unknown"`, else bare `"<domain>"`.
+Build: `qualified_domain = "<project>:<domain>"` if project is non-empty and not `"unknown"`.
+
+If `detect_project` returns `""` or `"unknown"` (cwd not inside a known project root):
+```
+⚠️ project undetectable from cwd — would distill to bare domain "<domain>" (no project prefix).
+Bare keys collide across projects: jeevy:frontend and khimaira:frontend are separate;
+plain "frontend" is shared by both. Confirm cwd is inside a known project root
+(check `khimaira attached`) or proceed knowingly with the bare key.
+```
+Then ask the user to confirm before continuing (or stop if clearly wrong).
 
 **4. Write the curated summary**
 
