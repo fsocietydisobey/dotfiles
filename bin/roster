@@ -33,6 +33,10 @@
 #   --no-observer       exclude observer
 #   --no-architect      exclude architect
 #   --no-critic         exclude critic
+#   --backend-lead      include backend-lead (start fresh in resume if needed)
+#   --data-lead         include data-lead (start fresh in resume if needed)
+#   --frontend-lead     include frontend-lead (start fresh in resume if needed)
+#   --no-backend-lead / --no-data-lead / --no-frontend-lead   exclude the respective lead
 #   --layout <name>     splits (default) | hub | grid | tall | fat | horizontal | vertical
 #   --order <list>      manual comma-separated order (uses sequential/kitty-native layout)
 #   --cwd <path>        working directory
@@ -42,14 +46,14 @@ set -euo pipefail
 # --- role lookups ---
 role_model()  { case "$1" in master|architect|analyst) echo opus ;; observer|tracker) echo haiku ;; *) echo sonnet ;; esac; }
 role_effort() { case "$1" in architect) echo max ;; master) echo high ;; observer) echo low ;; *) echo medium ;; esac; }
-role_tier()   { case "$1" in master) echo 1 ;; architect|analyst|verifier) echo 2 ;; intake) echo 3 ;; backend-lead|data-lead) echo 3 ;; agent) echo 4 ;; critic) echo 5 ;; observer) echo 6 ;; tracker) echo 7 ;; *) echo 4 ;; esac; }
+role_tier()   { case "$1" in master) echo 1 ;; architect|analyst|verifier) echo 2 ;; intake) echo 3 ;; backend-lead|data-lead|frontend-lead) echo 3 ;; agent) echo 4 ;; critic) echo 5 ;; observer) echo 6 ;; tracker) echo 7 ;; *) echo 4 ;; esac; }
 # Column assignment:
 #   Col 1 (left, tall): master, intake, architect, analyst, verifier — primary/thinkers
-#   Col 2 (right, stacked): agents                                   — executors, always last
+#   Col 2 (right, stacked): agents / leads                           — executors + domain leads
 #   Passive (observer, critic) go at bottom of col 1
 role_col() {
     case "$1" in
-        agent|backend-lead|data-lead) echo 2 ;;
+        agent|backend-lead|data-lead|frontend-lead) echo 2 ;;
         *)        echo 1 ;;  # everyone else in col 1; passive roles sort to bottom via tier
     esac
 }
@@ -66,7 +70,7 @@ OPT_PREFIX=""; OPT_MASTER=""; OPT_INTAKE=""
 OPT_AGENTS=3
 OPT_ANALYST=true; OPT_VERIFIER=true; OPT_TRACKER=true
 OPT_OBSERVER=true; OPT_ARCHITECT=true; OPT_CRITIC=true
-OPT_BACKEND_LEAD=false; OPT_DATA_LEAD=false
+OPT_BACKEND_LEAD=false; OPT_DATA_LEAD=false; OPT_FRONTEND_LEAD=false
 OPT_LAYOUT="splits"; OPT_ORDER=""; OPT_CWD=""
 declare -A FORCE_INCLUDE
 
@@ -93,6 +97,8 @@ while [[ $# -gt 0 ]]; do
         --no-backend-lead)  OPT_BACKEND_LEAD=false; unset "FORCE_INCLUDE[backend-lead]"; shift ;;
         --data-lead)        OPT_DATA_LEAD=true;     FORCE_INCLUDE[data-lead]=1;     shift ;;
         --no-data-lead)     OPT_DATA_LEAD=false;    unset "FORCE_INCLUDE[data-lead]"; shift ;;
+        --frontend-lead)    OPT_FRONTEND_LEAD=true;  FORCE_INCLUDE[frontend-lead]=1;  shift ;;
+        --no-frontend-lead) OPT_FRONTEND_LEAD=false; unset "FORCE_INCLUDE[frontend-lead]"; shift ;;
         --layout)       OPT_LAYOUT="$2";   shift 2 ;;
         --order)        OPT_ORDER="$2";    shift 2 ;;
         --cwd)          OPT_CWD="$2";      shift 2 ;;
@@ -145,6 +151,7 @@ $OPT_VERIFIER  && add_session "${PREFIX}verifier-1"  verifier
 $OPT_TRACKER       && add_session "${PREFIX}tracker-1"       tracker
 $OPT_BACKEND_LEAD  && add_session "${PREFIX}backend-lead-1"  backend-lead
 $OPT_DATA_LEAD     && add_session "${PREFIX}data-lead-1"     data-lead
+$OPT_FRONTEND_LEAD && add_session "${PREFIX}frontend-lead-1" frontend-lead
 
 # --- resolve which sessions to launch (resume skip logic) ---
 declare -A KNOWN_SESSIONS
@@ -255,7 +262,7 @@ do_3col_layout() {
         local agents=()
         for name in "${!SESSION_ROLE[@]}"; do
             local r="${SESSION_ROLE[$name]}"
-            [[ "$r" != "agent" && "$r" != "backend-lead" && "$r" != "data-lead" ]] && continue
+            [[ "$r" != "agent" && "$r" != "backend-lead" && "$r" != "data-lead" && "$r" != "frontend-lead" ]] && continue
             local sflag; sflag=$(session_flag "$name" "$r")
             [[ "$sflag" == "skip" ]] && { printf "  %-22s skipped\n" "$name"; continue; }
             IFS=: read -r model effort <<< "${SESSION_BUDGET[$name]}"
