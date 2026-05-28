@@ -35,13 +35,33 @@ print(detect_domain('SESSION_NAME_HERE'))
 ```
 (substitute the actual session name)
 
-If domain is `"general"`:
+If domain is `"general"`, branch on whether this is a MASTER session vs another non-lead role:
+
+**Master-fan-out branch** (session name matches `*-0`, `master-*`, `janice-*`, or similar master-shaped pattern — typically the chat creator + orchestrator role):
+
+This is the master-distill path. Master sessions accumulate cross-cutting knowledge (orchestration decisions, dispatch sequencing, architecture calls relayed from architect, gate adjudications). That knowledge belongs in *multiple* `project:domain` keys — one per code-domain the session touched + a `project:orchestration` key for master-level decisions.
+
+Fan-out steps:
+1. **Identify relevant target domains.** Read the summary text (`$ARGUMENTS` or the interactive summary from step 4). Map content to one or more of: `backend`, `frontend`, `data`, `devops`, `orchestration`. Default if uncertain: `orchestration` always + any code-domain explicitly mentioned in the summary.
+2. **Split the summary by target domain.** For each target, extract the slice of bullets/paragraphs that belongs to that domain. Drop bullets that apply to none. Bullets that apply to multiple → duplicate into each relevant slice (small redundancy is fine; mnemosyne's Haiku distiller dedupes downstream).
+3. **Loop the distill call** (Step 5 below) once per non-empty `(domain, slice)` pair. Build qualified key as `{project}:{domain}` per Step 3.
+4. **Report** each distill result separately in Step 6 — show domain + pairs_extracted per call.
+
+Skip the "general / hard stop" exit. Proceed to Step 3 (project detection) → Step 4 (summary write/parse) → Step 5 (multi-distill loop) → Step 6 (per-domain report).
+
+**Non-master "general" branch** (session is an agent/observer/critic/verifier/tracker/intake/analyst — not a domain lead and not master):
 ```
-⚠️ /khimaira-distill is for domain-lead sessions only.
-This session ("SESSION_NAME") doesn't match a domain-lead pattern (backend-lead, frontend-lead, data-lead, devops-lead).
-Set a lead session name first: mcp__khimaira__session_set_name(session_id, "<project>-frontend-lead-1")
+⚠️ /khimaira-distill from a non-lead non-master session ("SESSION_NAME") doesn't have a natural domain target.
+For agent/critic/verifier/analyst/observer/tracker/intake sessions, knowledge capture happens automatically via:
+- the PostToolUse `harvest_approval` hook (per approved task)
+- the session-end Stop hook (on session close)
+Manual /khimaira-distill from these roles is rarely the right move.
+If you really want to distill from here, set a lead session name first:
+  mcp__khimaira__session_set_name(session_id, "<project>-<area>-lead-1")
 ```
 Then stop.
+
+**Detection tip:** if uncertain whether you're "master-shaped," check the chat membership: master is typically the `created_by` of the roster chat (per the 4-layer Themis role resolution, L2 `created_by-is-master` resolves master role from chat meta). If unsure, default to the master-fan-out branch — over-capturing into multiple project:domain keys is recoverable; failing to capture isn't.
 
 **3. Detect project → build qualified domain key**
 
