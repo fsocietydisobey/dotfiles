@@ -523,14 +523,12 @@ do_hub_layout() {
         printf "  launching %-22s %s/%s\n" "$_name" "$_model" "$_effort"
         id_master=$(do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=hsplit)
         # Fresh master: schedule a boot prompt via send-text so it auto-acts on handoffs.
-        # Runs in background; 25s gives Claude time to fully initialize.
-        # Captures vars now (before subshell) — no 'local' inside subshell.
-        if [[ "$_sflag" == "-n" && -n "$id_master" ]]; then
-            _boot_win="$id_master"
-            _boot_to=("${KITTY_TO[@]}")
+        # Match by window title (set to session name) rather than captured ID to avoid
+        # stale-ID issues across multiple roster starts in the same kitty session.
+        if [[ "$_sflag" == "-n" ]]; then
+            _boot_title="$_name"
             ( sleep 25
-              kitty @ "${_boot_to[@]}" send-text \
-                  --match "id:$_boot_win" \
+              kitty @ send-text --match "title:^${_boot_title}$" \
                   "Check your handoffs and begin work on the highest-priority pending item.\r" \
                   2>/dev/null || true
             ) &
