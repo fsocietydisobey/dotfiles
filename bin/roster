@@ -663,12 +663,26 @@ print(200)
     if [[ -n "$id_master" ]]; then
         IFS=: read -r _bname _bmodel _beffort _bsflag <<< "$e_master"
         if [[ "$_bsflag" == "-n" ]]; then
-            # Fresh master: wait for Claude to boot, then inject boot prompt.
-            ( sleep 8
-              kitty @ "${KITTY_TO[@]}" send-text \
-                  --match "id:$id_master" \
-                  "Check your handoffs and begin work on the highest-priority pending item.\r" \
-                  2>/dev/null || true
+            # Fresh master: poll until Claude's prompt is visible, then inject.
+            # kitty @ get-text reads the window's screen content; we wait until
+            # it contains ">" (Claude's prompt indicator) before sending.
+            # Timeout after 60s to avoid hanging forever.
+            ( local _deadline=$(( $(date +%s) + 60 ))
+              while (( $(date +%s) < _deadline )); do
+                  sleep 2
+                  local _screen
+                  _screen=$(kitty @ "${KITTY_TO[@]}" get-text \
+                      --match "id:$id_master" 2>/dev/null || true)
+                  # Claude prompt ends with "> " or shows the session prompt
+                  if echo "$_screen" | grep -qE '>\s*$|❯\s*$'; then
+                      sleep 0.5  # brief settle after prompt appears
+                      kitty @ "${KITTY_TO[@]}" send-text \
+                          --match "id:$id_master" \
+                          "Check your handoffs and begin work on the highest-priority pending item.\r" \
+                          2>/dev/null || true
+                      break
+                  fi
+              done
             ) &
         fi
     fi
