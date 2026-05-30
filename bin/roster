@@ -176,6 +176,12 @@ if [[ "$MODE" == "resume" ]]; then
         [[ -n "$PREFIX" && "$sname" != "$PREFIX"* ]] && continue
         _resume_role=$(infer_role "$sname" "$PREFIX")
         [[ "$_resume_role" != *-lead ]] && continue
+        # When PREFIX is empty (khimaira default), infer_role strips nothing,
+        # so a project-prefixed name like "jp-frontend-lead-1" yields
+        # "jp-frontend-lead" — still matches *-lead and would scoop the
+        # jp-* leads into khimaira's roster. Require canonical bare-lead
+        # shape (<role>-lead) to keep cross-project leads out.
+        [[ -z "$PREFIX" && ! "$_resume_role" =~ ^[a-z]+-lead$ ]] && continue
         [[ -n "${SESSION_ROLE[$sname]:-}" ]] && continue
         add_session "$sname" "$_resume_role"
         echo "  + resume auto-detected lead: $sname ($_resume_role)"
@@ -237,7 +243,14 @@ do_launch() {
 }
 
 # Focus by kitty window ID (unique, no race on title); sleep lets kitty settle
-focus() { kitty @ "${KITTY_TO[@]}" focus-window --match "id:$1" 2>/dev/null || true; sleep 0.3; }
+focus() {
+    local _fid="$1" _attempt
+    for _attempt in 1 2 3; do
+        kitty @ "${KITTY_TO[@]}" focus-window --match "id:$_fid" 2>/dev/null && break
+        sleep 0.15
+    done
+    sleep 0.2  # settle after successful focus
+}
 
 # --- 3-column splits layout ---
 # Col A (left):   intake (top) / master (bottom)
