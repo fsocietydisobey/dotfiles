@@ -242,6 +242,19 @@ do_launch() {
     # kitty @ launch prints the window-id to stdout — captured by caller
 }
 
+# Like do_launch but pipes an initial message then hands off to interactive.
+# Used for fresh master sessions that should auto-act on handoffs.
+do_launch_with_boot() {
+    local name="$1" model="$2" effort="$3" flag="$4" boot_msg="$5"
+    shift 5
+    kitty @ "${KITTY_TO[@]}" launch \
+        --type=window \
+        --title="$name" \
+        --cwd="$CWD" \
+        "$@" \
+        -- bash -ic "cd '$CWD' && { echo '$boot_msg'; cat; } | claude-chat $flag $name --model $model --effort $effort; exec bash"
+}
+
 # Focus by kitty window ID (unique, no race on title); sleep lets kitty settle
 focus() {
     local _fid="$1" _attempt
@@ -520,7 +533,14 @@ do_hub_layout() {
         IFS=: read -r _name _model _effort _sflag <<< "$e_master"
         focus "$id_in"
         printf "  launching %-22s %s/%s\n" "$_name" "$_model" "$_effort"
-        id_master=$(do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=hsplit)
+        if [[ "$_sflag" == "-n" ]]; then
+            # Fresh master: pipe boot prompt so it auto-acts on handoffs.
+            id_master=$(do_launch_with_boot "$_name" "$_model" "$_effort" "$_sflag" \
+                "Check your handoffs and begin work on the highest-priority pending item." \
+                --location=hsplit)
+        else
+            id_master=$(do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=hsplit)
+        fi
     fi
     if [[ -n "$e_tracker" && -n "$id_master" ]]; then
         IFS=: read -r _name _model _effort _sflag <<< "$e_tracker"
@@ -662,28 +682,6 @@ print(200)
     # sessions already have context and don't need a boot prompt.
     if [[ -n "$id_master" ]]; then
         IFS=: read -r _bname _bmodel _beffort _bsflag <<< "$e_master"
-        if [[ "$_bsflag" == "-n" ]]; then
-            # Fresh master: poll until Claude's prompt is visible, then inject.
-            # kitty @ get-text reads the window's screen content; we wait until
-            # it contains ">" (Claude's prompt indicator) before sending.
-            # Timeout after 60s to avoid hanging forever.
-            ( local _deadline=$(( $(date +%s) + 60 ))
-              while (( $(date +%s) < _deadline )); do
-                  sleep 2
-                  local _screen
-                  _screen=$(kitty @ "${KITTY_TO[@]}" get-text \
-                      --match "id:$id_master" 2>/dev/null || true)
-                  # Claude prompt ends with "> " or shows the session prompt
-                  if echo "$_screen" | grep -qE '>\s*$|❯\s*$'; then
-                      sleep 0.5  # brief settle after prompt appears
-                      kitty @ "${KITTY_TO[@]}" send-text \
-                          --match "id:$id_master" \
-                          "Check your handoffs and begin work on the highest-priority pending item.\r" \
-                          2>/dev/null || true
-                      break
-                  fi
-              done
-            ) &
         fi
     fi
 }
