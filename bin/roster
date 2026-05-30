@@ -654,6 +654,24 @@ print(200)
 
     # Leave focus on intake (col B center).
     [[ -n "$id_in" ]] && focus "$id_in"
+
+    # Auto-boot master: inject an initial prompt so master acts on handoffs
+    # without waiting for the user to type something. Fires in background after
+    # a delay so Claude has time to fully initialize (SessionStart hook + role
+    # file load). Only fires when master window is fresh (-n flag) — resumed
+    # sessions already have context and don't need a boot prompt.
+    if [[ -n "$id_master" ]]; then
+        IFS=: read -r _bname _bmodel _beffort _bsflag <<< "$e_master"
+        if [[ "$_bsflag" == "-n" ]]; then
+            # Fresh master: wait for Claude to boot, then inject boot prompt.
+            ( sleep 8
+              kitty @ "${KITTY_TO[@]}" send-text \
+                  --match "id:$id_master" \
+                  "Check your handoffs and begin work on the highest-priority pending item.\r" \
+                  2>/dev/null || true
+            ) &
+        fi
+    fi
 }
 
 # --- sequential layout (for --order or non-splits layouts) ---
