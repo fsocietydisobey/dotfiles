@@ -242,18 +242,6 @@ do_launch() {
     # kitty @ launch prints the window-id to stdout — captured by caller
 }
 
-# Like do_launch but pipes an initial message then hands off to interactive.
-# Used for fresh master sessions that should auto-act on handoffs.
-do_launch_with_boot() {
-    local name="$1" model="$2" effort="$3" flag="$4" boot_msg="$5"
-    shift 5
-    kitty @ "${KITTY_TO[@]}" launch \
-        --type=window \
-        --title="$name" \
-        --cwd="$CWD" \
-        "$@" \
-        -- bash -ic "cd '$CWD' && { echo '$boot_msg'; cat; } | claude-chat $flag $name --model $model --effort $effort; exec bash"
-}
 
 # Focus by kitty window ID (unique, no race on title); sleep lets kitty settle
 focus() {
@@ -533,13 +521,19 @@ do_hub_layout() {
         IFS=: read -r _name _model _effort _sflag <<< "$e_master"
         focus "$id_in"
         printf "  launching %-22s %s/%s\n" "$_name" "$_model" "$_effort"
-        if [[ "$_sflag" == "-n" ]]; then
-            # Fresh master: pipe boot prompt so it auto-acts on handoffs.
-            id_master=$(do_launch_with_boot "$_name" "$_model" "$_effort" "$_sflag" \
-                "Check your handoffs and begin work on the highest-priority pending item." \
-                --location=hsplit)
-        else
-            id_master=$(do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=hsplit)
+        id_master=$(do_launch "$_name" "$_model" "$_effort" "$_sflag" --location=hsplit)
+        # Fresh master: schedule a boot prompt via send-text so it auto-acts on handoffs.
+        # Runs in background; 25s gives Claude time to fully initialize.
+        # Captures vars now (before subshell) — no 'local' inside subshell.
+        if [[ "$_sflag" == "-n" && -n "$id_master" ]]; then
+            _boot_win="$id_master"
+            _boot_to=("${KITTY_TO[@]}")
+            ( sleep 25
+              kitty @ "${_boot_to[@]}" send-text \
+                  --match "id:$_boot_win" \
+                  "Check your handoffs and begin work on the highest-priority pending item.\r" \
+                  2>/dev/null || true
+            ) &
         fi
     fi
     if [[ -n "$e_tracker" && -n "$id_master" ]]; then
