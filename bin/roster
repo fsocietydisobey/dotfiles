@@ -212,6 +212,34 @@ session_flag() {
     fi
 }
 
+# --- pre-flight: clean up zero-decision sessions from previous failed starts ---
+# Avoids accumulating partial sessions that get stuck in chats with unresolvable roles.
+# Only runs in start mode (not resume, where sessions are intentionally kept).
+if [[ "$MODE" == "start" ]]; then
+    _stale_json=$(curl -sf 'http://127.0.0.1:8740/api/sessions' 2>/dev/null)
+    if [[ -n "$_stale_json" ]]; then
+        _stale_ids=$(echo "$_stale_json" | python3 -c "
+import sys, json, time
+data = json.load(sys.stdin)
+sessions = data.get('sessions', [])
+now = time.time()
+for s in sessions:
+    if (s.get('decision_count', 0) == 0
+            and (s.get('last_active_age_s') or 9999) < 3600
+            and s.get('session_id', '').count('-') == 4):
+        print(s['session_id'])
+" 2>/dev/null)
+        if [[ -n "$_stale_ids" ]]; then
+            _count=$(echo "$_stale_ids" | wc -l | tr -d ' ')
+            echo "  pre-flight: cleaning $_count stale session(s) from previous failed start..."
+            while IFS= read -r _sid; do
+                curl -sf -X DELETE "http://127.0.0.1:8740/api/sessions/$_sid?force=false" > /dev/null 2>&1 || true
+            done <<< "$_stale_ids"
+            echo "  pre-flight: done."
+        fi
+    fi
+fi
+
 # --- kitty remote control setup ---
 [[ -z "${KITTY_WINDOW_ID:-}" ]] && { echo "ERROR: not running inside kitty." >&2; exit 1; }
 KITTY_TO=(); [[ -n "${KITTY_LISTEN_ON:-}" ]] && KITTY_TO=(--to "$KITTY_LISTEN_ON")
