@@ -37,7 +37,7 @@
 #   --data-lead         include data-lead (start fresh in resume if needed)
 #   --frontend-lead     include frontend-lead (start fresh in resume if needed)
 #   --no-backend-lead / --no-data-lead / --no-frontend-lead   exclude the respective lead
-#   --layout <name>     splits (default) | hub | grid | tall | fat | horizontal | vertical
+#   --layout <name>     grid (default) | splits | hub | tall | fat | horizontal | vertical
 #   --order <list>      manual comma-separated order (uses sequential/kitty-native layout)
 #   --cwd <path>        working directory
 
@@ -71,7 +71,7 @@ OPT_AGENTS=3
 OPT_ANALYST=true; OPT_VERIFIER=true; OPT_TRACKER=true
 OPT_OBSERVER=true; OPT_ARCHITECT=true; OPT_CRITIC=true
 OPT_BACKEND_LEAD=false; OPT_DATA_LEAD=false; OPT_FRONTEND_LEAD=false
-OPT_LAYOUT="splits"; OPT_ORDER=""; OPT_CWD=""
+OPT_LAYOUT="grid"; OPT_ORDER=""; OPT_CWD=""
 declare -A FORCE_INCLUDE
 
 POSITIONAL=()
@@ -257,17 +257,36 @@ case "$OPT_LAYOUT" in
     *)          kitty @ "${KITTY_TO[@]}" goto-layout "$OPT_LAYOUT" 2>/dev/null || true ;;
 esac
 
+# Roster instance ID: unique per `roster` invocation (uuidgen-per-launch).
+# Stamped into every window's KHIMAIRA_ROSTER_SLOT env as '<INSTANCE_ID>:<name>'
+# so the daemon can resolve same-named sessions from different roster launches.
+# TRAP-2: a per-window token file (0600) is also written for daemon-verifiable
+# binding — the session asserts its slot via env, the daemon verifies against
+# the token file written HERE (by the roster script, not by the session itself).
+ROSTER_INSTANCE_ID=$(uuidgen)
+_ROSTER_TOKEN_DIR="$HOME/.local/state/khimaira/roster-tokens"
+mkdir -p "$_ROSTER_TOKEN_DIR"
+
 # Launch one window; echoes its kitty window ID (integer).
 do_launch() {
     local name="$1" model="$2" effort="$3" flag="$4"
     shift 4
-    kitty @ "${KITTY_TO[@]}" launch \
+    local slot="$ROSTER_INSTANCE_ID:$name"
+    local wid
+    wid=$(kitty @ "${KITTY_TO[@]}" launch \
         --type=window \
         --title="$name" \
         --cwd="$CWD" \
+        --env "KHIMAIRA_ROSTER_SLOT=$slot" \
         "$@" \
-        -- bash -ic "cd '$CWD' && claude-chat $flag $name --model $model --effort $effort; exec bash"
-    # kitty @ launch prints the window-id to stdout — captured by caller
+        -- bash -ic "cd '$CWD' && claude-chat $flag $name --model $model --effort $effort; exec bash")
+    # Write TRAP-2 token file: daemon reads this BY PATH (window-id → slot),
+    # never trusting the session-asserted value alone.
+    if [[ -n "$wid" ]]; then
+        printf '%s' "$slot" > "$_ROSTER_TOKEN_DIR/$wid"
+        chmod 0600 "$_ROSTER_TOKEN_DIR/$wid"
+    fi
+    echo "$wid"
 }
 
 
