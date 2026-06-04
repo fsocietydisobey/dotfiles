@@ -72,6 +72,7 @@ OPT_ANALYST=true; OPT_VERIFIER=true; OPT_TRACKER=true
 OPT_OBSERVER=true; OPT_ARCHITECT=true; OPT_CRITIC=true
 OPT_BACKEND_LEAD=false; OPT_DATA_LEAD=false; OPT_FRONTEND_LEAD=false
 OPT_LAYOUT="grid"; OPT_ORDER=""; OPT_CWD=""
+OPT_NO_PROXY=false
 declare -A FORCE_INCLUDE
 
 POSITIONAL=()
@@ -102,6 +103,7 @@ while [[ $# -gt 0 ]]; do
         --layout)       OPT_LAYOUT="$2";   shift 2 ;;
         --order)        OPT_ORDER="$2";    shift 2 ;;
         --cwd)          OPT_CWD="$2";      shift 2 ;;
+        --no-proxy)     OPT_NO_PROXY=true; shift ;;
         --*)            echo "Unknown flag: $1" >&2; exit 1 ;;
         *)              POSITIONAL+=("$1"); shift ;;
     esac
@@ -263,6 +265,19 @@ esac
 # TRAP-2: a per-window token file (0600) is also written for daemon-verifiable
 # binding — the session asserts its slot via env, the daemon verifies against
 # the token file written HERE (by the roster script, not by the session itself).
+# Auto-route this roster's sessions through the khimaira concurrency-proxy when it's
+# alive (port 8741), so `roster jp resume` just works with no env prefix. Opt out with
+# --no-proxy; an explicit KHIMAIRA_PROXY_URL always wins. Routes ONLY when the proxy
+# answers /health — never-dark discipline: if the proxy is down, go direct rather than
+# point sessions at a dead ANTHROPIC_BASE_URL (which would hard-fail every API call).
+_PROXY_DEFAULT_URL="http://127.0.0.1:8741"
+if [[ "$OPT_NO_PROXY" != "true" && -z "${KHIMAIRA_PROXY_URL:-}" ]]; then
+    if curl -sf --max-time 2 "$_PROXY_DEFAULT_URL/health" >/dev/null 2>&1; then
+        export KHIMAIRA_PROXY_URL="$_PROXY_DEFAULT_URL"
+        echo "  → khimaira-proxy alive — routing sessions through $_PROXY_DEFAULT_URL (--no-proxy to disable)"
+    fi
+fi
+
 ROSTER_INSTANCE_ID=$(uuidgen)
 _ROSTER_TOKEN_DIR="$HOME/.local/state/khimaira/roster-tokens"
 mkdir -p "$_ROSTER_TOKEN_DIR"
@@ -273,11 +288,20 @@ do_launch() {
     shift 4
     local slot="$ROSTER_INSTANCE_ID:$name"
     local wid
+    # Route this roster's sessions through the khimaira concurrency-proxy when
+    # KHIMAIRA_PROXY_URL is set (e.g. KHIMAIRA_PROXY_URL=http://127.0.0.1:8741 roster jp).
+    # ENABLE_TOOL_SEARCH=1 is mandatory — ANTHROPIC_BASE_URL disables MCP tool-search
+    # otherwise. Scoped to THIS roster launch (per-session --env), not global.
+    local proxy_env=()
+    if [[ -n "${KHIMAIRA_PROXY_URL:-}" ]]; then
+        proxy_env=(--env "ANTHROPIC_BASE_URL=$KHIMAIRA_PROXY_URL" --env "ENABLE_TOOL_SEARCH=1")
+    fi
     wid=$(kitty @ "${KITTY_TO[@]}" launch \
         --type=window \
         --title="$name" \
         --cwd="$CWD" \
         --env "KHIMAIRA_ROSTER_SLOT=$slot" \
+        ${proxy_env[@]+"${proxy_env[@]}"} \
         "$@" \
         -- bash -ic "cd '$CWD' && claude-chat $flag $name --model $model --effort $effort; exec bash")
     # Write TRAP-2 token file: daemon reads this BY PATH (window-id → slot),
@@ -505,11 +529,17 @@ do_hub_layout() {
     fi
     IFS=: read -r _name _model _effort _sflag <<< "$anchor_entry"
     printf "  launching %-22s %s/%s (new tab)\n" "$_name" "$_model" "$_effort"
+    # Same proxy routing as do_launch (the anchor bypasses do_launch).
+    local _anchor_proxy_env=()
+    if [[ -n "${KHIMAIRA_PROXY_URL:-}" ]]; then
+        _anchor_proxy_env=(--env "ANTHROPIC_BASE_URL=$KHIMAIRA_PROXY_URL" --env "ENABLE_TOOL_SEARCH=1")
+    fi
     id_la=$(kitty @ "${KITTY_TO[@]}" launch \
         --type=tab \
         --tab-title="${PROJECT}-roster" \
         --title="$_name" \
         --cwd="$CWD" \
+        ${_anchor_proxy_env[@]+"${_anchor_proxy_env[@]}"} \
         -- bash -ic "cd '$CWD' && claude-chat $_sflag $_name --model $_model --effort $_effort; exec bash")
 
     # If the anchor IS intake (no thinkers), wire id_in and leave id_la empty.
