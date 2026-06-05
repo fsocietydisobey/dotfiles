@@ -343,7 +343,7 @@ do_launch() {
         --env "KHIMAIRA_ROSTER_SLOT=$slot" \
         ${proxy_env[@]+"${proxy_env[@]}"} \
         "$@" \
-        -- bash -ic "cd '$CWD' && claude-chat $(_pin_id_args "$name" "$flag") --model $model --effort $effort; exec bash")
+        -- bash -ic "cd '$CWD' && claude-chat $(_pin_id_args "$name" "$flag") --name $name --model $model --effort $effort; exec bash")
     # Write TRAP-2 token file: daemon reads this BY PATH (window-id → slot),
     # never trusting the session-asserted value alone.
     if [[ -n "$wid" ]]; then
@@ -580,7 +580,7 @@ do_hub_layout() {
         --title="$_name" \
         --cwd="$CWD" \
         ${_anchor_proxy_env[@]+"${_anchor_proxy_env[@]}"} \
-        -- bash -ic "cd '$CWD' && claude-chat $(_pin_id_args "$_name" "$_sflag") --model $_model --effort $_effort; exec bash")
+        -- bash -ic "cd '$CWD' && claude-chat $(_pin_id_args "$_name" "$_sflag") --name $_name --model $_model --effort $_effort; exec bash")
 
     # If the anchor IS intake (no thinkers), wire id_in and leave id_la empty.
     if [[ ${#left_sessions[@]} -eq 0 ]]; then
