@@ -299,28 +299,14 @@ fi
 _ROSTER_TOKEN_DIR="$HOME/.local/state/khimaira/roster-tokens"
 mkdir -p "$_ROSTER_TOKEN_DIR"
 
-# --- deterministic per-slot session-id pinning (ROOT fix for roster identity churn) ---
-# Claude Code mints a NEW session UUID on every resume/suspend/compaction; the old
-# `claude -r <name>` resumed BY NAME, letting the wrong/duplicate session bind — piling up
-# multiple masters/agents and cross-binding rosters that share a cwd. Instead we derive a
-# STABLE uuid5 from (roster-instance, slot-name) and pin it: --session-id to create,
-# --resume to continue the EXACT id. One slot ⇒ one id forever ⇒ no churn, no pile-up, no
-# name-picker cross-binding. Closes the identity-disorder paths (resume/suspend/compaction/
-# start-over-prior/cross-roster-same-cwd) at the source — the daemon always sees one stable
-# id per slot, so duplicates can't form. (--session-id errors on an existing id, so we glob
-# for the EXACT uuid5 transcript and --resume it when present; the uuid5 is globally unique,
-# so the glob needs no knowledge of Claude's project-dir path encoding.)
-_claude_cfg_dir() { [[ "$CWD" == "$HOME/work"* ]] && echo "$HOME/.claude-jeevy" || echo "$HOME/.claude"; }
-_pin_id_args() {
-    local name="$1" flag="$2" sid cfgdir sessfile
-    sid=$(uuidgen --sha1 --namespace "$ROSTER_INSTANCE_ID" --name "$name")
-    cfgdir=$(_claude_cfg_dir)
-    sessfile=$(find "$cfgdir/projects" -name "$sid.jsonl" 2>/dev/null | head -1)
-    # Forced-fresh (--<role> ⇒ -n) with an existing transcript: discard it so the slot
-    # restarts clean under the same pinned id.
-    [[ "$flag" == "-n" && -n "$sessfile" ]] && { rm -f "$sessfile"; sessfile=""; }
-    if [[ -n "$sessfile" ]]; then printf -- '--resume %s' "$sid"; else printf -- '--session-id %s' "$sid"; fi
-}
+# --- initial-turn prompt (ROOT fix for "idle sessions never register") ---
+# The daemon discovers a session ONLY when its transcript file appears, and Claude Code
+# doesn't write a transcript until the session takes its FIRST TURN. An idle roster window
+# (sitting at the prompt) therefore never registers — invisible to session_list, bootstrap,
+# and dispatch. Passing a tiny initial prompt makes each session take one turn on boot, so
+# it writes a transcript and registers immediately — no nudge, no manual relaunch.
+# (Verified: an idle session launched WITH this prompt registers; without it, it does not.)
+_INIT_PROMPT="You are online in the roster. Register now: call mcp__khimaira-chat__chat_my_chats with session_id set to your own id (shown in the session_id block at the top of your context). Then reply: standing by. Do not begin any work until master sends your role brief."
 
 # Launch one window; echoes its kitty window ID (integer).
 do_launch() {
@@ -343,7 +329,7 @@ do_launch() {
         --env "KHIMAIRA_ROSTER_SLOT=$slot" \
         ${proxy_env[@]+"${proxy_env[@]}"} \
         "$@" \
-        -- bash -ic "cd '$CWD' && claude-chat $flag $name --model $model --effort $effort; exec bash")
+        -- bash -ic "cd '$CWD' && claude-chat $flag $name --model $model --effort $effort \"$_INIT_PROMPT\"; exec bash")
     # Write TRAP-2 token file: daemon reads this BY PATH (window-id → slot),
     # never trusting the session-asserted value alone.
     if [[ -n "$wid" ]]; then
@@ -580,7 +566,7 @@ do_hub_layout() {
         --title="$_name" \
         --cwd="$CWD" \
         ${_anchor_proxy_env[@]+"${_anchor_proxy_env[@]}"} \
-        -- bash -ic "cd '$CWD' && claude-chat $_sflag $_name --model $_model --effort $_effort; exec bash")
+        -- bash -ic "cd '$CWD' && claude-chat $_sflag $_name --model $_model --effort $_effort \"$_INIT_PROMPT\"; exec bash")
 
     # If the anchor IS intake (no thinkers), wire id_in and leave id_la empty.
     if [[ ${#left_sessions[@]} -eq 0 ]]; then
