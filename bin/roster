@@ -278,7 +278,24 @@ if [[ "$OPT_NO_PROXY" != "true" && -z "${KHIMAIRA_PROXY_URL:-}" ]]; then
     fi
 fi
 
-ROSTER_INSTANCE_ID=$(uuidgen)
+# Roster instance ID — STABLE across resumes of the same roster.
+# The slot key is "<INSTANCE_ID>:<name>" and the daemon's identity-heal (slot-registry
+# slot_resolve: old-sid → current-sid) is keyed on it. A fresh uuid every launch made
+# `roster <p> resume` create a NEW slot namespace → the heal couldn't bridge identity
+# across the resume → roster disorder + session-id proliferation + roles re-claiming
+# master. So: persist the instance-id per project; RESUME reuses the saved one (same
+# slots → heal bridges old→new sid); START generates a fresh one (a genuinely new roster).
+_ROSTER_INSTANCE_DIR="$HOME/.local/state/khimaira/roster-instance"
+mkdir -p "$_ROSTER_INSTANCE_DIR"
+_ROSTER_INSTANCE_FILE="$_ROSTER_INSTANCE_DIR/$PROJECT"
+if [[ "$MODE" == "resume" && -s "$_ROSTER_INSTANCE_FILE" ]]; then
+    ROSTER_INSTANCE_ID=$(<"$_ROSTER_INSTANCE_FILE")
+    echo "  → resume: reusing roster-instance $ROSTER_INSTANCE_ID (stable slot identity across restart)"
+else
+    ROSTER_INSTANCE_ID=$(uuidgen)
+    printf '%s' "$ROSTER_INSTANCE_ID" > "$_ROSTER_INSTANCE_FILE"
+    [[ "$MODE" == "resume" ]] && echo "  → resume: no saved instance for '$PROJECT' — generating $ROSTER_INSTANCE_ID (one-time; subsequent resumes are stable)"
+fi
 _ROSTER_TOKEN_DIR="$HOME/.local/state/khimaira/roster-tokens"
 mkdir -p "$_ROSTER_TOKEN_DIR"
 
