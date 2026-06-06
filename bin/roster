@@ -44,7 +44,7 @@
 set -euo pipefail
 
 # --- role lookups ---
-role_model()  { case "$1" in master|architect|intake) echo claude-opus-4-8 ;; observer|tracker) echo haiku ;; *) echo sonnet ;; esac; }
+role_model()  { case "$1" in master|architect|intake) echo claude-opus-4-8 ;; *) echo sonnet ;; esac; }  # observer/tracker: haiku→sonnet 2026-06-06 (haiku fumbled the deferred-tool registration chain)
 role_effort() { case "$1" in architect) echo max ;; master) echo high ;; observer) echo low ;; *) echo medium ;; esac; }
 role_tier()   { case "$1" in master) echo 1 ;; architect|analyst|verifier) echo 2 ;; intake) echo 3 ;; backend-lead|data-lead|frontend-lead) echo 3 ;; agent) echo 4 ;; critic) echo 5 ;; observer) echo 6 ;; tracker) echo 7 ;; *) echo 4 ;; esac; }
 # Column assignment:
