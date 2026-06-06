@@ -255,6 +255,30 @@ for s in (data.get('sessions') or []):
         done <<< "$_reap_ids"
         echo "  pre-flight: done."
     fi
+    # Clear stale TRAP-2 token files (window-id → slot) for CLOSED windows. The daemon
+    # TRUSTS the token over the session's asserted slot, so a reused kitty window-id that
+    # still has an OLD token binds the new session to the WRONG slot (the master-on-
+    # verifier-slot scramble we hit). Removing closed-window tokens kills that source.
+    # (Literal path — matches _ROSTER_TOKEN_DIR, which is set below, after this preflight.)
+    _toks="$HOME/.local/state/khimaira/roster-tokens"
+    if [[ -d "$_toks" ]]; then
+        _open_wids=$(kitty @ "${KITTY_TO[@]}" ls 2>/dev/null | python3 -c "
+import sys, json
+try: d = json.load(sys.stdin)
+except Exception: sys.exit()
+for o in d:
+    for t in o.get('tabs', []):
+        for w in t.get('windows', []): print(w.get('id'))
+" 2>/dev/null)
+        _tc=0
+        for _tf in "$_toks"/*; do
+            [[ -f "$_tf" ]] || continue
+            _twid=$(basename "$_tf")
+            [[ "$_twid" =~ ^[0-9]+$ ]] || continue
+            grep -qx "$_twid" <<< "$_open_wids" || { rm -f "$_tf"; _tc=$((_tc+1)); }
+        done
+        [[ "$_tc" -gt 0 ]] && echo "  pre-flight: cleared $_tc stale window-token(s) (prevents slot-scramble)."
+    fi
 fi
 
 # --- kitty remote control setup ---
