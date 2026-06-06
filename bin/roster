@@ -125,7 +125,13 @@ if [[ "$PROJECT" == "khimaira" ]]; then
 elif [[ "$PROJECT" == "jp" ]]; then
     PREFIX="${OPT_PREFIX:-jp-}"; MASTER="${OPT_MASTER:-janice-0}"; CWD="${OPT_CWD:-/home/_3ntropy/work/jeevy_portal}"
 else
-    PREFIX="${OPT_PREFIX:-${PROJECT}-}"; MASTER="${OPT_MASTER:-${PROJECT}-0}"; CWD="${OPT_CWD:-${HOME}/work/${PROJECT}}"
+    PREFIX="${OPT_PREFIX:-${PROJECT}-}"; MASTER="${OPT_MASTER:-${PROJECT}-0}"
+    # cwd default: ~/work/<project> if it exists, else the dir you're standing in.
+    # Lets a custom roster name (e.g. `muther` for jeevy_portal) launch from inside the
+    # project dir without --cwd: ~/work/muther doesn't exist, so fall back to $PWD.
+    _default_cwd="${HOME}/work/${PROJECT}"
+    [[ -d "$_default_cwd" ]] || _default_cwd="$PWD"
+    CWD="${OPT_CWD:-$_default_cwd}"
 fi
 
 INTAKE="${OPT_INTAKE:-${PREFIX}intake-1}"
