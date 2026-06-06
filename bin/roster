@@ -369,13 +369,39 @@ _init_prompt_for() {
     esac
 }
 
+# Proxy-adaptive boot pacing. When the roster routes through the concurrency-proxy
+# (KHIMAIRA_PROXY_URL set), a 14-session boot storm hammers it into a 429 cascade — the
+# proxy's adaptive concurrency ratchets 32→3, and the LAST-launched sessions (observer/
+# tracker, role_tier 6-7) starve before they can register, ending up pending+unreachable
+# (observed 2026-06-06: proxy total_429s 10228/16022 = 64%; observer/tracker had ZERO
+# successful proxy events). A fixed 2s stagger is far too tight. Instead, wait for the
+# proxy to DRAIN the previous boot's burst (concurrency recovered + in-flight low) before
+# launching the next session, so boots serialize against actual proxy capacity. Falls back
+# to the fixed stagger when no proxy is configured.
+_proxy_settle() {
+    local url="${KHIMAIRA_PROXY_URL:-}"
+    if [[ -z "$url" ]]; then sleep "${_ROSTER_STAGGER_S:-2}"; return; fi
+    local i out n inf
+    for i in $(seq 1 12); do          # up to ~24s of patience per session
+        out=$(curl -s --max-time 3 "$url/health" 2>/dev/null)
+        n=$(printf '%s' "$out"   | python3 -c "import sys,json;print(json.load(sys.stdin).get('current_n',0))" 2>/dev/null)
+        inf=$(printf '%s' "$out" | python3 -c "import sys,json;print(json.load(sys.stdin).get('in_flight',99))" 2>/dev/null)
+        # launch the next session once the proxy has headroom: concurrency recovered to
+        # >=8 AND the previous burst has mostly drained (in_flight <=3).
+        if [[ -n "$n" && -n "$inf" ]] && (( n >= 8 && inf <= 3 )); then sleep 1; return; fi
+        sleep 2
+    done
+    # proxy stayed throttled past the cap — proceed anyway; the proxy's per-request 5x
+    # retry/backoff is the backstop. Stalling the whole roster would be worse.
+}
+
 # After a roster window launches: write its TRAP-2 token, auto-confirm the
 # --dangerously-load-development-channels prompt (so the operator never has to click "1.
-# local development" on 14 windows), and STAGGER the next boot so N sessions don't hammer
-# the khimaira-chat MCP server simultaneously (the bulk-start overload). The dev-channels
+# local development" on 14 windows), and PACE the next boot so N sessions don't hammer
+# the proxy / MCP server simultaneously (the bulk-start overload). The dev-channels
 # prompt's default selection is option 1, so a bare Enter accepts it; auto-confirm runs in
-# the background with spaced Enters to cover render-timing variance. Stagger is tunable via
-# _ROSTER_STAGGER_S (default 2s).
+# the background with spaced Enters to cover render-timing variance. Pacing is proxy-adaptive
+# (see _proxy_settle); the no-proxy fallback stagger is tunable via _ROSTER_STAGGER_S.
 _post_launch() {
     local wid="$1" slot="${2:-}"
     [[ -z "$wid" ]] && return
@@ -399,7 +425,7 @@ _post_launch() {
             break
         fi
       done ) &
-    sleep "${_ROSTER_STAGGER_S:-2}"
+    _proxy_settle
 }
 
 # Launch one window; echoes its kitty window ID (integer).
