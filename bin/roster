@@ -381,15 +381,15 @@ _init_prompt_for() {
 _proxy_settle() {
     local url="${KHIMAIRA_PROXY_URL:-}"
     if [[ -z "$url" ]]; then sleep "${_ROSTER_STAGGER_S:-2}"; return; fi
-    local i out n inf
-    for i in $(seq 1 12); do          # up to ~24s of patience per session
-        out=$(curl -s --max-time 3 "$url/health" 2>/dev/null)
-        n=$(printf '%s' "$out"   | python3 -c "import sys,json;print(json.load(sys.stdin).get('current_n',0))" 2>/dev/null)
-        inf=$(printf '%s' "$out" | python3 -c "import sys,json;print(json.load(sys.stdin).get('in_flight',99))" 2>/dev/null)
-        # launch the next session once the proxy has headroom: concurrency recovered to
-        # >=8 AND the previous burst has mostly drained (in_flight <=3).
-        if [[ -n "$n" && -n "$inf" ]] && (( n >= 8 && inf <= 3 )); then sleep 1; return; fi
-        sleep 2
+    local i inf
+    for i in $(seq 1 4); do            # BOUNDED: ~6s max per session (was 24s — far too slow,
+                                       # made a 14-session boot take ~10min). Gate on in_flight
+                                       # alone: proceed the moment the previous boot's burst has
+                                       # drained (headroom for the next). current_n recovers too
+                                       # slowly to wait on; the bounded cap + proxy 5x retry suffice.
+        inf=$(curl -s --max-time 2 "$url/health" 2>/dev/null | python3 -c "import sys,json;print(json.load(sys.stdin).get('in_flight',99))" 2>/dev/null)
+        if [[ -n "$inf" ]] && (( inf <= 3 )); then sleep 1; return; fi
+        sleep 1.5
     done
     # proxy stayed throttled past the cap — proceed anyway; the proxy's per-request 5x
     # retry/backoff is the backstop. Stalling the whole roster would be worse.
