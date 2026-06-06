@@ -214,31 +214,46 @@ session_flag() {
     fi
 }
 
-# --- pre-flight: clean up zero-decision sessions from previous failed starts ---
-# Avoids accumulating partial sessions that get stuck in chats with unresolvable roles.
-# Only runs in start mode (not resume, where sessions are intentionally kept).
+# --- pre-flight (START only): REAP a replaced roster's dead records ---
+# Each start, before launching, delete the session records THIS roster owns (master +
+# prefix*) whose kitty window is CLOSED — i.e. dead leftovers from a prior launch. Without
+# this they accumulate into the session-list buildup + name-entanglement (multiple
+# muther-agent-1, scrambled name↔id) that previously required manual cleanup. Safe: we
+# reap ONLY names with NO open window (a still-running roster is left untouched), and
+# reap=true lets the daemon delete them despite the alive-guard (it can't tell a just-
+# closed session from a live one by mtime). Resume mode intentionally keeps everything.
 if [[ "$MODE" == "start" ]]; then
-    _stale_json=$(curl -sf 'http://127.0.0.1:8740/api/sessions' 2>/dev/null)
-    if [[ -n "$_stale_json" ]]; then
-        _stale_ids=$(echo "$_stale_json" | python3 -c "
-import sys, json, time
-data = json.load(sys.stdin)
-sessions = data.get('sessions', [])
-now = time.time()
-for s in sessions:
-    if (s.get('decision_count', 0) == 0
-            and (s.get('last_active_age_s') or 9999) < 3600
-            and s.get('session_id', '').count('-') == 4):
-        print(s['session_id'])
+    _open_titles=$(kitty @ "${KITTY_TO[@]}" ls 2>/dev/null | python3 -c "
+import sys, json
+try: d = json.load(sys.stdin)
+except Exception: sys.exit()
+for o in d:
+    for t in o.get('tabs', []):
+        for w in t.get('windows', []):
+            tt = (w.get('title') or '').strip()
+            if tt: print(tt)
 " 2>/dev/null)
-        if [[ -n "$_stale_ids" ]]; then
-            _count=$(echo "$_stale_ids" | wc -l | tr -d ' ')
-            echo "  pre-flight: cleaning $_count stale session(s) from previous failed start..."
-            while IFS= read -r _sid; do
-                curl -sf -X DELETE "http://127.0.0.1:8740/api/sessions/$_sid?force=false" > /dev/null 2>&1 || true
-            done <<< "$_stale_ids"
-            echo "  pre-flight: done."
-        fi
+    _reap_ids=$(curl -sf 'http://127.0.0.1:8740/api/sessions' 2>/dev/null | \
+        MASTER="$MASTER" PREFIX="$PREFIX" OPEN_TITLES="$_open_titles" python3 -c "
+import sys, json, os
+master = os.environ.get('MASTER', ''); prefix = os.environ.get('PREFIX', '')
+open_titles = set(x for x in os.environ.get('OPEN_TITLES', '').splitlines() if x)
+try: data = json.load(sys.stdin)
+except Exception: sys.exit()
+for s in (data.get('sessions') or []):
+    n = s.get('name') or ''; sid = s.get('session_id') or ''
+    if sid.count('-') != 4: continue                       # real UUID only
+    if not ((n == master) or (prefix and n.startswith(prefix))): continue  # this roster's
+    if n in open_titles: continue                          # has a LIVE window — protect it
+    print(sid)
+" 2>/dev/null)
+    if [[ -n "$_reap_ids" ]]; then
+        _rc=$(echo "$_reap_ids" | grep -c .)
+        echo "  pre-flight: reaping $_rc dead '${PREFIX:-$MASTER}*' record(s) from a prior launch (frees names, prevents buildup)..."
+        while IFS= read -r _sid; do
+            [[ -n "$_sid" ]] && curl -sf -X DELETE "http://127.0.0.1:8740/api/sessions/$_sid?force=true&reap=true" >/dev/null 2>&1 || true
+        done <<< "$_reap_ids"
+        echo "  pre-flight: done."
     fi
 fi
 
