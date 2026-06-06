@@ -69,7 +69,7 @@ PROJECT="khimaira"; MODE="start"
 OPT_PREFIX=""; OPT_MASTER=""; OPT_INTAKE=""
 OPT_AGENTS=3
 OPT_ANALYST=true; OPT_VERIFIER=true; OPT_TRACKER=true
-OPT_OBSERVER=true; OPT_ARCHITECT=true; OPT_CRITIC=true
+OPT_OBSERVER=false; OPT_ARCHITECT=true; OPT_CRITIC=true  # observer retired 2026-06-06 (folded into tracker; daemon guards do the structural watch) — --observer force-includes
 OPT_BACKEND_LEAD=false; OPT_DATA_LEAD=false; OPT_FRONTEND_LEAD=false
 OPT_LAYOUT="grid"; OPT_ORDER=""; OPT_CWD=""
 OPT_NO_PROXY=false
