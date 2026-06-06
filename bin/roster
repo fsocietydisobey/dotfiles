@@ -867,6 +867,38 @@ else
     do_sequential_layout "${ORDERED[@]}"
 fi
 
+# --- backstop auto-confirm (catches the LAST window) ---
+# The per-window auto-confirm polls run in the BACKGROUND as children of this script, and
+# this script closes its own launching window at the very end (below) — which kills any
+# still-running poll. The LAST-launched window's poll has the least time, so it consistently
+# misses. This SYNCHRONOUS final pass confirms any open roster window still showing the
+# dev-channels prompt, before the script exits. Only ever acts on that exact prompt, so it
+# can never touch a permission/other prompt.
+echo "  finalizing: confirming any remaining dev-channels prompts..."
+for _pass in $(seq 1 20); do
+    _pending=0
+    while IFS= read -r _w; do
+        [[ -z "$_w" ]] && continue
+        if kitty @ "${KITTY_TO[@]}" get-text --match "id:$_w" 2>/dev/null \
+             | grep -q "I am using this for local development"; then
+            kitty @ "${KITTY_TO[@]}" send-key --match "id:$_w" enter 2>/dev/null
+            _pending=1
+        fi
+    done < <(kitty @ "${KITTY_TO[@]}" ls 2>/dev/null | MASTER="$MASTER" PREFIX="$PREFIX" python3 -c "
+import sys, json, os
+master = os.environ.get('MASTER', ''); prefix = os.environ.get('PREFIX', '')
+try: d = json.load(sys.stdin)
+except Exception: sys.exit()
+for o in d:
+    for t in o.get('tabs', []):
+        for w in t.get('windows', []):
+            tt = (w.get('title') or '').strip()
+            if tt == master or (prefix and tt.startswith(prefix)): print(w.get('id'))
+" 2>/dev/null)
+    [[ "$_pending" == "0" ]] && break
+    sleep 2
+done
+
 echo ""
 echo "Done. Run /khimaira-bootstrap-roster${PREFIX:+ --prefix ${PREFIX%%-}} inside $MASTER to wire the chat."
 sleep 0.5
