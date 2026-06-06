@@ -358,7 +358,7 @@ _INIT_PROMPT="You are online in the roster. STEP 1: register — call mcp__khima
 _CONSULT_INIT_PROMPT="You are an IDLE-BY-DEFAULT consult role (analyst / architect / critic / verifier — see your injected role file). STEP 1: register — call mcp__khimaira-chat__chat_my_chats with your session_id from the session_id block. STEP 2: reply exactly: standing by. STEP 3: STOP and do nothing further. Do NOT read code, analyze files, run shell commands, or act on the design / JEEVY-561 handoff — that handoff is context for the MASTER, not a directive for you. You activate ONLY when the master sends you an explicit consult. Self-starting analysis without a consult is a role violation. Until a consult arrives, wait."
 
 # Master: brief workers FIRST, do NOT reassign roles, keep consult-roles idle.
-_MASTER_INIT_PROMPT="You are the MASTER of this roster. STEP 1: register — call mcp__khimaira-chat__chat_my_chats with your session_id from the session_id block. STEP 2: CREATE THE ROSTER CHAT — at boot your chat_my_chats is EMPTY and NO chat exists yet, so you cannot brief anyone until you make one. Run /khimaira-bootstrap-roster --prefix <the common prefix of your worker names, e.g. muther if your workers are muther-agent-1, muther-analyst-1>: it auto-detects your workers, creates a hierarchical chat, and role-binds + invites + briefs them all in one command. Do NOT conclude the roster is broken just because chat_my_chats is empty at boot — that is EXPECTED; you are the one who creates the chat. STEP 3: once the roster is live, orchestrate — assign each agent-N its first task. RULES YOU MUST FOLLOW: (a) You ORCHESTRATE; you do NOT implement. Even if the design is complete and a handoff points you at files, your job is to ASSIGN the implementation to agent-N — never write or edit code yourself; if your next action would be a file edit, stop and delegate instead. (b) Roles are FIXED by the launch — do NOT reassign, convert, or grant a different role to any worker (never analyst into agent). (c) analyst / architect / critic / verifier are idle-by-default consult roles: engage them ONLY via an explicit consult, never with implementation tasks."
+_MASTER_INIT_PROMPT="You are the MASTER of this roster. STEP 1: register — call mcp__khimaira-chat__chat_my_chats with your session_id from the session_id block. STEP 2: STAND BY — do NOT bootstrap or create the roster chat yourself. The USER will run /khimaira-bootstrap-roster once all worker windows have loaded; that creates the chat and briefs everyone in one command. Your chat_my_chats is EMPTY until then — that is EXPECTED, the roster is NOT broken; do not start work or conclude anything is wrong. Reply exactly: standing by — waiting for the user to bootstrap the roster. Then wait. STEP 3: AFTER the user bootstraps and the roster chat appears, orchestrate — assign each agent-N its first task. RULES YOU MUST FOLLOW: (a) You ORCHESTRATE; you do NOT implement. Even if the design is complete and a handoff points you at files, your job is to ASSIGN the implementation to agent-N — never write or edit code yourself; if your next action would be a file edit, stop and delegate instead. (b) Roles are FIXED by the launch — do NOT reassign, convert, or grant a different role to any worker (never analyst into agent). (c) analyst / architect / critic / verifier are idle-by-default consult roles: engage them ONLY via an explicit consult, never with implementation tasks."
 
 # Pick the initial prompt for a session by its role.
 _init_prompt_for() {
@@ -964,6 +964,16 @@ for o in d:
 done
 
 echo ""
-echo "Done. Run /khimaira-bootstrap-roster${PREFIX:+ --prefix ${PREFIX%%-}} inside $MASTER to wire the chat."
-sleep 0.5
+echo "═══════════════════════════════════════════════════════════════════════"
+echo "  ✅ ROSTER WINDOWS LAUNCHED"
+echo ""
+echo "  NEXT STEP (manual) — once ALL windows finish loading, go to the"
+echo "  '$MASTER' window and run:"
+echo ""
+echo "      /khimaira-bootstrap-roster${PREFIX:+ --prefix ${PREFIX%%-}}"
+echo ""
+echo "  This creates the chat + invites + briefs every worker. The master is"
+echo "  standing by for it — it will NOT self-bootstrap."
+echo "═══════════════════════════════════════════════════════════════════════"
+sleep 6
 kitty @ "${KITTY_TO[@]}" close-window --match "id:${KITTY_WINDOW_ID}" 2>/dev/null || true
