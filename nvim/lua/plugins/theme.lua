@@ -1,15 +1,30 @@
 -- Theme configuration
 --
--- Active theme: vscode.nvim + Anysphere Dark overrides
--- Matches Cursor Dark "Anysphere Dark" (v0.0.3) exactly.
+-- Active theme: vscode.nvim + Space Grey overrides
+-- Matches kitty space grey palette — warm mid-dark bg, soft grey fg, desaturated syntax.
 --
 -- Key palette:
---   bg #181818  fg #E4E4E4  keywords #82D2CE  functions #efb080
---   strings #e394dc  variables #87C3FF  properties #AAA0FA
---   numbers #ebc88d  comments #636363 italic
+--   bg #252528  fg #B0B4BF  keywords #6AAAA0  functions #C0A870
+--   strings #9A80B0  variables #7090B8  properties #8A70A0
+--   numbers #A89060  comments #555560 italic
 --
 -- Toggle with `:colorscheme catppuccin-mocha` to switch back.
 -- Also installed: catppuccin-mocha, tokyonight, rose-pine, kanagawa
+
+local BG      = "#252528"
+local BG_FLOAT= "#1E1E22"
+local FG      = "#B0B4BF"
+local SPLIT   = "#3A3A42"
+local LINENR  = "#505058"
+
+-- Syntax — desaturated to match space grey kitty colors
+local KW      = "#6AAAA0"  -- dusty teal   (keywords)
+local FN      = "#C0A870"  -- warm amber   (functions/types)
+local STR     = "#9A80B0"  -- dusty violet (strings)
+local NUM     = "#A89060"  -- muted amber  (numbers/constants)
+local VAR     = "#7090B8"  -- steel blue   (variables)
+local PROP    = "#8A70A0"  -- dusty purple (properties)
+local CMT     = "#555560"  -- muted grey   (comments)
 
 return {
   -- Tell LazyVim to use vscode instead of its default tokyonight
@@ -20,7 +35,7 @@ return {
     },
   },
 
-  -- Anysphere Dark (Cursor Dark) — active
+  -- Space Grey — active
   {
     "Mofiqul/vscode.nvim",
     lazy = false,
@@ -33,83 +48,83 @@ return {
         underline_links = true,
         group_overrides = {
           -- Core backgrounds
-          Normal         = { fg = "#E4E4E4", bg = "#181818" },
-          NormalNC       = { bg = "#181818" },
-          SignColumn     = { bg = "#181818" },
-          LineNr         = { bg = "#181818", fg = "#636363" },
-          CursorLineNr   = { bg = "#181818", fg = "#E4E4E4" },
-          EndOfBuffer    = { bg = "#181818" },
+          Normal         = { fg = FG,  bg = BG },
+          NormalNC       = { bg = BG },
+          SignColumn     = { bg = BG },
+          LineNr         = { bg = BG, fg = LINENR },
+          CursorLineNr   = { bg = BG, fg = FG },
+          EndOfBuffer    = { bg = BG },
 
-          -- Floats / separators (sidebar is #141414 in Anysphere)
-          WinSeparator   = { fg = "#3a3a3a", bg = "#181818" },
-          VertSplit      = { fg = "#3a3a3a", bg = "#181818" },
-          NormalFloat    = { bg = "#141414" },
-          FloatBorder    = { bg = "#141414", fg = "#3a3a3a" },
-          AvanteNormal   = { bg = "#141414" },
-          AvanteInput    = { bg = "#141414" },
+          -- Floats / separators
+          WinSeparator   = { fg = SPLIT, bg = BG },
+          VertSplit      = { fg = SPLIT, bg = BG },
+          NormalFloat    = { bg = BG_FLOAT },
+          FloatBorder    = { bg = BG_FLOAT, fg = SPLIT },
+          AvanteNormal   = { bg = BG_FLOAT },
+          AvanteInput    = { bg = BG_FLOAT },
 
-          -- Keywords → teal (#82D2CE)
-          Keyword        = { fg = "#82D2CE" },
-          Statement      = { fg = "#82D2CE" },
-          Conditional    = { fg = "#82D2CE" },
-          Repeat         = { fg = "#82D2CE" },
-          Exception      = { fg = "#82D2CE" },
-          StorageClass   = { fg = "#82D2CE" },
-          Include        = { fg = "#82D2CE" },
-          Define         = { fg = "#82D2CE" },
-          ["@keyword"]            = { fg = "#82D2CE" },
-          ["@keyword.function"]   = { fg = "#82D2CE" },
-          ["@keyword.operator"]   = { fg = "#82D2CE" },
-          ["@keyword.import"]     = { fg = "#82D2CE" },
-          ["@conditional"]        = { fg = "#82D2CE" },
-          ["@repeat"]             = { fg = "#82D2CE" },
-          ["@exception"]          = { fg = "#82D2CE" },
-          ["@storageclass"]       = { fg = "#82D2CE" },
-          ["@include"]            = { fg = "#82D2CE" },
-          ["@type.builtin"]       = { fg = "#82D2CE" },
-          ["@constant.builtin"]   = { fg = "#82D2CE" },
-          ["@boolean"]            = { fg = "#82D2CE" },
+          -- Keywords → dusty teal
+          Keyword        = { fg = KW },
+          Statement      = { fg = KW },
+          Conditional    = { fg = KW },
+          Repeat         = { fg = KW },
+          Exception      = { fg = KW },
+          StorageClass   = { fg = KW },
+          Include        = { fg = KW },
+          Define         = { fg = KW },
+          ["@keyword"]            = { fg = KW },
+          ["@keyword.function"]   = { fg = KW },
+          ["@keyword.operator"]   = { fg = KW },
+          ["@keyword.import"]     = { fg = KW },
+          ["@conditional"]        = { fg = KW },
+          ["@repeat"]             = { fg = KW },
+          ["@exception"]          = { fg = KW },
+          ["@storageclass"]       = { fg = KW },
+          ["@include"]            = { fg = KW },
+          ["@type.builtin"]       = { fg = KW },
+          ["@constant.builtin"]   = { fg = KW },
+          ["@boolean"]            = { fg = KW },
 
-          -- Functions / types → orange (#efb080)
-          Function       = { fg = "#efb080" },
-          ["@function"]       = { fg = "#efb080" },
-          ["@function.call"]  = { fg = "#efb080" },
-          ["@function.macro"] = { fg = "#efb080" },
-          ["@method"]         = { fg = "#efb080" },
-          ["@method.call"]    = { fg = "#efb080" },
-          ["@constructor"]    = { fg = "#efb080" },
-          Type           = { fg = "#efb080" },
-          ["@type"]           = { fg = "#efb080" },
-          ["@namespace"]      = { fg = "#efb080" },
+          -- Functions / types → warm amber
+          Function       = { fg = FN },
+          ["@function"]       = { fg = FN },
+          ["@function.call"]  = { fg = FN },
+          ["@function.macro"] = { fg = FN },
+          ["@method"]         = { fg = FN },
+          ["@method.call"]    = { fg = FN },
+          ["@constructor"]    = { fg = FN },
+          Type           = { fg = FN },
+          ["@type"]           = { fg = FN },
+          ["@namespace"]      = { fg = FN },
 
-          -- Strings → pink/lavender (#e394dc)
-          String         = { fg = "#e394dc" },
-          Character      = { fg = "#e394dc" },
-          ["@string"]         = { fg = "#e394dc" },
-          ["@string.special"] = { fg = "#e394dc" },
-          ["@character"]      = { fg = "#e394dc" },
+          -- Strings → dusty violet
+          String         = { fg = STR },
+          Character      = { fg = STR },
+          ["@string"]         = { fg = STR },
+          ["@string.special"] = { fg = STR },
+          ["@character"]      = { fg = STR },
 
-          -- Numbers / constants → amber (#ebc88d)
-          Number         = { fg = "#ebc88d" },
-          Float          = { fg = "#ebc88d" },
-          Constant       = { fg = "#ebc88d" },
-          ["@number"]     = { fg = "#ebc88d" },
-          ["@float"]      = { fg = "#ebc88d" },
-          ["@constant"]   = { fg = "#ebc88d" },
+          -- Numbers / constants → muted amber
+          Number         = { fg = NUM },
+          Float          = { fg = NUM },
+          Constant       = { fg = NUM },
+          ["@number"]     = { fg = NUM },
+          ["@float"]      = { fg = NUM },
+          ["@constant"]   = { fg = NUM },
 
-          -- Comments → muted gray italic
-          Comment        = { fg = "#636363", italic = true },
-          ["@comment"]    = { fg = "#636363", italic = true },
+          -- Comments → muted grey italic
+          Comment        = { fg = CMT, italic = true },
+          ["@comment"]    = { fg = CMT, italic = true },
 
-          -- Variables → light blue (#87C3FF)
-          ["@variable"]   = { fg = "#87C3FF" },
+          -- Variables → steel blue
+          ["@variable"]   = { fg = VAR },
 
-          -- Properties → lavender (#AAA0FA)
-          ["@property"]   = { fg = "#AAA0FA" },
-          ["@field"]      = { fg = "#AAA0FA" },
+          -- Properties → dusty purple
+          ["@property"]   = { fg = PROP },
+          ["@field"]      = { fg = PROP },
 
-          -- Parameters → default fg
-          ["@parameter"]  = { fg = "#d6d6dd" },
+          -- Parameters → soft fg
+          ["@parameter"]  = { fg = FG },
         },
       })
       vim.cmd.colorscheme("vscode")
@@ -158,7 +173,7 @@ return {
         },
       },
       custom_highlights = function(colors)
-        local nvim_bg = "#222224"
+        local nvim_bg = "#252528"
         return {
           Normal = { bg = nvim_bg },
           NormalNC = { bg = nvim_bg },
@@ -230,63 +245,61 @@ return {
     },
   },
 
-  -- File icon colors — mapped to Anysphere Dark palette
+  -- File icon colors — mapped to Space Grey palette
   {
     "nvim-tree/nvim-web-devicons",
     lazy = true,
     config = function()
-      -- Anysphere Dark colors:
-      --   teal    #82D2CE  (keywords)
-      --   orange  #efb080  (functions/types)
-      --   pink    #e394dc  (strings)
-      --   amber   #ebc88d  (numbers/constants)
-      --   blue    #87C3FF  (variables)
-      --   lavender #AAA0FA (properties)
-      --   green   #a8cc7c  (directives/decorators)
-      --   muted   #636363  (comments)
+      -- Space Grey colors:
+      --   teal    #6AAAA0  (keywords)
+      --   amber   #C0A870  (functions/types)
+      --   violet  #9A80B0  (strings)
+      --   steel   #7090B8  (variables)
+      --   purple  #8A70A0  (properties)
+      --   muted   #555560  (comments)
       require("nvim-web-devicons").setup({
         override_by_extension = {
           -- TypeScript
-          ts  = { icon = "", color = "#87C3FF", name = "Ts" },
-          tsx = { icon = "", color = "#87C3FF", name = "Tsx" },
+          ts  = { icon = "", color = "#7090B8", name = "Ts" },
+          tsx = { icon = "", color = "#7090B8", name = "Tsx" },
           -- JavaScript
-          js  = { icon = "", color = "#ebc88d", name = "Js" },
-          jsx = { icon = "", color = "#ebc88d", name = "Jsx" },
-          mjs = { icon = "", color = "#ebc88d", name = "Mjs" },
-          cjs = { icon = "", color = "#ebc88d", name = "Cjs" },
+          js  = { icon = "", color = "#C0A870", name = "Js" },
+          jsx = { icon = "", color = "#C0A870", name = "Jsx" },
+          mjs = { icon = "", color = "#C0A870", name = "Mjs" },
+          cjs = { icon = "", color = "#C0A870", name = "Cjs" },
           -- Python
-          py  = { icon = "", color = "#82D2CE", name = "Py" },
+          py  = { icon = "", color = "#6AAAA0", name = "Py" },
           -- Lua
-          lua = { icon = "", color = "#87C3FF", name = "Lua" },
+          lua = { icon = "", color = "#7090B8", name = "Lua" },
           -- JSON / YAML / TOML
-          json = { icon = "", color = "#ebc88d", name = "Json" },
-          yml  = { icon = "", color = "#efb080", name = "Yml" },
-          yaml = { icon = "", color = "#efb080", name = "Yaml" },
-          toml = { icon = "", color = "#efb080", name = "Toml" },
+          json = { icon = "", color = "#C0A870", name = "Json" },
+          yml  = { icon = "", color = "#C0A870", name = "Yml" },
+          yaml = { icon = "", color = "#C0A870", name = "Yaml" },
+          toml = { icon = "", color = "#C0A870", name = "Toml" },
           -- Markdown / text
-          md   = { icon = "", color = "#E4E4E4", name = "Md" },
-          mdx  = { icon = "", color = "#E4E4E4", name = "Mdx" },
-          txt  = { icon = "󰈙", color = "#636363", name = "Txt" },
+          md   = { icon = "", color = "#B0B4BF", name = "Md" },
+          mdx  = { icon = "", color = "#B0B4BF", name = "Mdx" },
+          txt  = { icon = "󰈙", color = "#555560", name = "Txt" },
           -- CSS / SCSS / HTML
-          css  = { icon = "", color = "#e394dc", name = "Css" },
-          scss = { icon = "", color = "#e394dc", name = "Scss" },
-          html = { icon = "", color = "#efb080", name = "Html" },
+          css  = { icon = "", color = "#9A80B0", name = "Css" },
+          scss = { icon = "", color = "#9A80B0", name = "Scss" },
+          html = { icon = "", color = "#C0A870", name = "Html" },
           -- Shell
-          sh   = { icon = "", color = "#a8cc7c", name = "Sh" },
-          bash = { icon = "", color = "#a8cc7c", name = "Bash" },
-          zsh  = { icon = "", color = "#a8cc7c", name = "Zsh" },
-          fish = { icon = "", color = "#a8cc7c", name = "Fish" },
+          sh   = { icon = "", color = "#6A9870", name = "Sh" },
+          bash = { icon = "", color = "#6A9870", name = "Bash" },
+          zsh  = { icon = "", color = "#6A9870", name = "Zsh" },
+          fish = { icon = "", color = "#6A9870", name = "Fish" },
           -- Rust / Go
-          rs  = { icon = "", color = "#efb080", name = "Rs" },
-          go  = { icon = "", color = "#82D2CE", name = "Go" },
+          rs  = { icon = "", color = "#C0A870", name = "Rs" },
+          go  = { icon = "", color = "#6AAAA0", name = "Go" },
           -- Config / env
-          env     = { icon = "", color = "#ebc88d", name = "Env" },
-          lock    = { icon = "󰌾", color = "#636363", name = "Lock" },
-          gitignore = { icon = "", color = "#636363", name = "Gitignore" },
+          env     = { icon = "", color = "#A89060", name = "Env" },
+          lock    = { icon = "󰌾", color = "#555560", name = "Lock" },
+          gitignore = { icon = "", color = "#555560", name = "Gitignore" },
           -- Docker
-          dockerfile = { icon = "", color = "#87C3FF", name = "Dockerfile" },
+          dockerfile = { icon = "", color = "#7090B8", name = "Dockerfile" },
           -- SQL
-          sql = { icon = "", color = "#AAA0FA", name = "Sql" },
+          sql = { icon = "", color = "#8A70A0", name = "Sql" },
         },
       })
     end,
