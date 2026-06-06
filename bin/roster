@@ -308,6 +308,27 @@ mkdir -p "$_ROSTER_TOKEN_DIR"
 # (Verified: an idle session launched WITH this prompt registers; without it, it does not.)
 _INIT_PROMPT="You are online in the roster. Register now: call mcp__khimaira-chat__chat_my_chats with session_id set to your own id (shown in the session_id block at the top of your context). Then reply: standing by. Do not begin any work until master sends your role brief."
 
+# After a roster window launches: write its TRAP-2 token, auto-confirm the
+# --dangerously-load-development-channels prompt (so the operator never has to click "1.
+# local development" on 14 windows), and STAGGER the next boot so N sessions don't hammer
+# the khimaira-chat MCP server simultaneously (the bulk-start overload). The dev-channels
+# prompt's default selection is option 1, so a bare Enter accepts it; auto-confirm runs in
+# the background with spaced Enters to cover render-timing variance. Stagger is tunable via
+# _ROSTER_STAGGER_S (default 2s).
+_post_launch() {
+    local wid="$1" slot="${2:-}"
+    [[ -z "$wid" ]] && return
+    if [[ -n "$slot" ]]; then
+        printf '%s' "$slot" > "$_ROSTER_TOKEN_DIR/$wid"
+        chmod 0600 "$_ROSTER_TOKEN_DIR/$wid"
+    fi
+    ( for _d in 3 4 4; do
+        sleep "$_d"
+        kitty @ "${KITTY_TO[@]}" send-key --match "id:$wid" enter 2>/dev/null
+      done ) &
+    sleep "${_ROSTER_STAGGER_S:-2}"
+}
+
 # Launch one window; echoes its kitty window ID (integer).
 do_launch() {
     local name="$1" model="$2" effort="$3" flag="$4"
@@ -330,12 +351,9 @@ do_launch() {
         ${proxy_env[@]+"${proxy_env[@]}"} \
         "$@" \
         -- bash -ic "cd '$CWD' && claude-chat $flag $name --model $model --effort $effort \"$_INIT_PROMPT\"; exec bash")
-    # Write TRAP-2 token file: daemon reads this BY PATH (window-id → slot),
-    # never trusting the session-asserted value alone.
-    if [[ -n "$wid" ]]; then
-        printf '%s' "$slot" > "$_ROSTER_TOKEN_DIR/$wid"
-        chmod 0600 "$_ROSTER_TOKEN_DIR/$wid"
-    fi
+    # TRAP-2 token (window-id → slot, daemon reads it BY PATH) + auto-confirm the
+    # dev-channels prompt + stagger the next boot. See _post_launch.
+    _post_launch "$wid" "$slot"
     echo "$wid"
 }
 
@@ -560,13 +578,17 @@ do_hub_layout() {
     if [[ -n "${KHIMAIRA_PROXY_URL:-}" ]]; then
         _anchor_proxy_env=(--env "ANTHROPIC_BASE_URL=$KHIMAIRA_PROXY_URL" --env "ENABLE_TOOL_SEARCH=1")
     fi
+    local _anchor_slot="$ROSTER_INSTANCE_ID:$_name"
     id_la=$(kitty @ "${KITTY_TO[@]}" launch \
         --type=tab \
         --tab-title="${PROJECT}-roster" \
         --title="$_name" \
         --cwd="$CWD" \
+        --env "KHIMAIRA_ROSTER_SLOT=$_anchor_slot" \
         ${_anchor_proxy_env[@]+"${_anchor_proxy_env[@]}"} \
         -- bash -ic "cd '$CWD' && claude-chat $_sflag $_name --model $_model --effort $_effort \"$_INIT_PROMPT\"; exec bash")
+    # TRAP-2 token + auto-confirm dev-channels prompt + stagger (anchor bypasses do_launch).
+    _post_launch "$id_la" "$_anchor_slot"
 
     # If the anchor IS intake (no thinkers), wire id_in and leave id_la empty.
     if [[ ${#left_sessions[@]} -eq 0 ]]; then
