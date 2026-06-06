@@ -307,6 +307,15 @@ mkdir -p "$_ROSTER_TOKEN_DIR"
 # it writes a transcript and registers immediately — no nudge, no manual relaunch.
 # (Verified: an idle session launched WITH this prompt registers; without it, it does not.)
 _INIT_PROMPT="You are online in the roster. Register now: call mcp__khimaira-chat__chat_my_chats with session_id set to your own id (shown in the session_id block at the top of your context). Then reply: standing by. Do not begin any work until master sends your role brief."
+# The MASTER orchestrates — it must NOT "stand by for a role brief" (it GIVES the briefs).
+_MASTER_INIT_PROMPT="You are the MASTER (orchestrator) of this roster. Register: call mcp__khimaira-chat__chat_my_chats with your session_id from the session_id block at the top of your context. Then read your handoff (it surfaces on boot) and BEGIN ORCHESTRATING — your workers are coming online and standing by for your role briefs. You GIVE the briefs; do not wait for one."
+# Pick the initial prompt for a session by its role (master → orchestrator prompt; rest → standby).
+_init_prompt_for() {
+    case "${SESSION_ROLE[$1]:-}" in
+        master) printf '%s' "$_MASTER_INIT_PROMPT" ;;
+        *)      printf '%s' "$_INIT_PROMPT" ;;
+    esac
+}
 
 # After a roster window launches: write its TRAP-2 token, auto-confirm the
 # --dangerously-load-development-channels prompt (so the operator never has to click "1.
@@ -322,9 +331,21 @@ _post_launch() {
         printf '%s' "$slot" > "$_ROSTER_TOKEN_DIR/$wid"
         chmod 0600 "$_ROSTER_TOKEN_DIR/$wid"
     fi
-    ( for _d in 3 4 4; do
-        sleep "$_d"
-        kitty @ "${KITTY_TO[@]}" send-key --match "id:$wid" enter 2>/dev/null
+    # Auto-confirm: POLL for the dev-channels confirm prompt and press Enter (default =
+    # option 1) only when it's actually on screen. Polling (not blind timed Enters) is
+    # robust to slow MCP-connect boots AND avoids a stray Enter landing on an unrelated
+    # permission prompt. Up to ~30s, then a second Enter if it's still showing.
+    ( for _ in $(seq 1 15); do
+        sleep 2
+        if kitty @ "${KITTY_TO[@]}" get-text --match "id:$wid" 2>/dev/null \
+             | grep -q "I am using this for local development"; then
+            kitty @ "${KITTY_TO[@]}" send-key --match "id:$wid" enter 2>/dev/null
+            sleep 1
+            kitty @ "${KITTY_TO[@]}" get-text --match "id:$wid" 2>/dev/null \
+              | grep -q "I am using this for local development" \
+              && kitty @ "${KITTY_TO[@]}" send-key --match "id:$wid" enter 2>/dev/null
+            break
+        fi
       done ) &
     sleep "${_ROSTER_STAGGER_S:-2}"
 }
@@ -350,7 +371,7 @@ do_launch() {
         --env "KHIMAIRA_ROSTER_SLOT=$slot" \
         ${proxy_env[@]+"${proxy_env[@]}"} \
         "$@" \
-        -- bash -ic "cd '$CWD' && claude-chat $flag $name --model $model --effort $effort \"$_INIT_PROMPT\"; exec bash")
+        -- bash -ic "cd '$CWD' && claude-chat $flag $name --model $model --effort $effort \"$(_init_prompt_for "$name")\"; exec bash")
     # TRAP-2 token (window-id → slot, daemon reads it BY PATH) + auto-confirm the
     # dev-channels prompt + stagger the next boot. See _post_launch.
     _post_launch "$wid" "$slot"
@@ -586,7 +607,7 @@ do_hub_layout() {
         --cwd="$CWD" \
         --env "KHIMAIRA_ROSTER_SLOT=$_anchor_slot" \
         ${_anchor_proxy_env[@]+"${_anchor_proxy_env[@]}"} \
-        -- bash -ic "cd '$CWD' && claude-chat $_sflag $_name --model $_model --effort $_effort \"$_INIT_PROMPT\"; exec bash")
+        -- bash -ic "cd '$CWD' && claude-chat $_sflag $_name --model $_model --effort $_effort \"$(_init_prompt_for "$_name")\"; exec bash")
     # TRAP-2 token + auto-confirm dev-channels prompt + stagger (anchor bypasses do_launch).
     _post_launch "$id_la" "$_anchor_slot"
 
