@@ -447,6 +447,7 @@ do_launch() {
         --title="$name" \
         --cwd="$CWD" \
         --env "KHIMAIRA_ROSTER_SLOT=$slot" \
+        --env "KHIMAIRA_ROSTER_MASTER=$MASTER" \
         ${proxy_env[@]+"${proxy_env[@]}"} \
         "$@" \
         -- bash -ic "cd '$CWD' && claude-chat $flag $name --model $model --effort $effort \"$(_init_prompt_for "$name")\"; exec bash")
