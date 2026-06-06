@@ -345,14 +345,27 @@ mkdir -p "$_ROSTER_TOKEN_DIR"
 # and dispatch. Passing a tiny initial prompt makes each session take one turn on boot, so
 # it writes a transcript and registers immediately — no nudge, no manual relaunch.
 # (Verified: an idle session launched WITH this prompt registers; without it, it does not.)
-_INIT_PROMPT="You are online in the roster. Register now: call mcp__khimaira-chat__chat_my_chats with session_id set to your own id (shown in the session_id block at the top of your context). Then reply: standing by. Do not begin any work until master sends your role brief."
-# The MASTER orchestrates — it must NOT "stand by for a role brief" (it GIVES the briefs).
-_MASTER_INIT_PROMPT="You are the MASTER (orchestrator) of this roster. Register: call mcp__khimaira-chat__chat_my_chats with your session_id from the session_id block at the top of your context. Then read your handoff (it surfaces on boot) and BEGIN ORCHESTRATING — your workers are coming online and standing by for your role briefs. You GIVE the briefs; do not wait for one."
-# Pick the initial prompt for a session by its role (master → orchestrator prompt; rest → standby).
+# GOVERNANCE — the launch prompt is the first thing each session acts on, so it must
+# enforce the roster contract that role-files alone failed to (observed 2026-06-05: analyst
+# self-started from a handoff; master deliberated 6 min before briefing AND converted an
+# analyst into an agent). Three role-aware prompts. NO double-quotes in the values (they are
+# embedded into a double-quoted bash -ic string via _init_prompt_for).
+
+# Standby (agents, intake, observer, tracker): register, stand by, do NOT self-start.
+_INIT_PROMPT="You are online in the roster. STEP 1: register — call mcp__khimaira-chat__chat_my_chats with your session_id from the session_id block at the top of your context. STEP 2: reply exactly: standing by. STEP 3: STOP. Do NOT begin any work, do NOT self-assign a task, and do NOT act on any surfaced handoff that says resume or start — a handoff is CONTEXT FOR THE MASTER, not a directive for you. Wait for the master to send you an EXPLICIT task in the roster chat. Act only in your assigned role; never adopt a different role."
+
+# Consult roles (analyst, architect, critic, verifier): idle-by-default — must NOT self-start.
+_CONSULT_INIT_PROMPT="You are an IDLE-BY-DEFAULT consult role (analyst / architect / critic / verifier — see your injected role file). STEP 1: register — call mcp__khimaira-chat__chat_my_chats with your session_id from the session_id block. STEP 2: reply exactly: standing by. STEP 3: STOP and do nothing further. Do NOT read code, analyze files, run shell commands, or act on the design / JEEVY-561 handoff — that handoff is context for the MASTER, not a directive for you. You activate ONLY when the master sends you an explicit consult. Self-starting analysis without a consult is a role violation. Until a consult arrives, wait."
+
+# Master: brief workers FIRST, do NOT reassign roles, keep consult-roles idle.
+_MASTER_INIT_PROMPT="You are the MASTER of this roster. STEP 1: register — call mcp__khimaira-chat__chat_my_chats with your session_id from the session_id block. STEP 2: BRIEF YOUR WORKERS FIRST — before any deep planning, send each worker its role and first task in the roster chat. Brief promptly; do NOT spend many minutes deliberating while the workers sit idle. RULES YOU MUST FOLLOW: (a) Roles are FIXED by the launch — each worker name encodes its role (intake, architect, analyst, verifier, tracker, observer, critic, agent-N). Do NOT reassign, convert, or grant a different role to any worker — never turn an analyst into an agent. (b) Treat analyst / architect / critic / verifier as idle-by-default consult roles: engage them ONLY via an explicit consult, never with implementation tasks; give implementation work to agent-N. AFTER the workers are briefed you may deliberate on the work."
+
+# Pick the initial prompt for a session by its role.
 _init_prompt_for() {
     case "${SESSION_ROLE[$1]:-}" in
-        master) printf '%s' "$_MASTER_INIT_PROMPT" ;;
-        *)      printf '%s' "$_INIT_PROMPT" ;;
+        master)                            printf '%s' "$_MASTER_INIT_PROMPT" ;;
+        analyst|architect|critic|verifier) printf '%s' "$_CONSULT_INIT_PROMPT" ;;
+        *)                                 printf '%s' "$_INIT_PROMPT" ;;
     esac
 }
 
