@@ -44,7 +44,7 @@
 set -euo pipefail
 
 # --- role lookups ---
-role_model()  { case "$1" in master|architect) echo "opus[1m]" ;; intake) echo claude-opus-4-8 ;; *) echo sonnet ;; esac; }  # master/architect → 1M context 2026-06-08 (200k→1M: master legitimately accumulates 150k+ orchestrating 13 sessions = 75% of 200k but 15% of 1M; far fewer compactions). observer/tracker: haiku→sonnet 2026-06-06.
+role_model()  { case "$1" in master|architect|intake) echo "opus[1m]" ;; *) echo sonnet ;; esac; }  # master/architect → 1M context 2026-06-08 (200k→1M: master legitimately accumulates 150k+ orchestrating 13 sessions = 75% of 200k but 15% of 1M; far fewer compactions). observer/tracker: haiku→sonnet 2026-06-06.
 role_effort() { case "$1" in architect) echo max ;; master) echo high ;; observer) echo low ;; *) echo medium ;; esac; }
 role_tier()   { case "$1" in master) echo 1 ;; architect|analyst|verifier) echo 2 ;; intake) echo 3 ;; backend-lead|data-lead|frontend-lead) echo 3 ;; agent) echo 4 ;; critic) echo 5 ;; observer) echo 6 ;; tracker) echo 7 ;; *) echo 4 ;; esac; }
 # Column assignment:
