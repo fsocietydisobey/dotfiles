@@ -162,6 +162,13 @@ only — other sessions (bare `agent-1` etc.) are ignored. Title defaults to
    - `title`: from `--title` or default
    - `body`: brief stating the roster + topology, plus a pointer to roles/<role>.md per role
    - POST `http://127.0.0.1:8740/api/chats` (or use `chat_create_room` MCP tool)
+   - **K3b 409 handling:** if the server returns HTTP 409 with `existing_chat_id` in the body,
+     the server-side overlap guard fired — a live roster already shares ≥50% of these members.
+     Do NOT retry with `allow_overlap=True`. Instead:
+     * Extract `existing_chat_id` from the 409 body.
+     * Compute `missing` = intended roster session_ids − current members of `existing_chat_id`
+       (call `chat_history` or the member-status endpoint to get current members).
+     * Route to step 6b using `existing_chat_id` and `missing`. Skip creating a new chat.
    - Capture returned `chat_id`.
    - Continue to step 7 (wait for accept) → step 8 (brief all) → step 9 (summary).
 
@@ -210,70 +217,40 @@ only — other sessions (bare `agent-1` etc.) are ignored. Title defaults to
    - If after 60s some are still pending: print which are unaccepted; proceed anyway with
      accepted subset.
 
-8. **Brief each accepted member** via `chat_send_to`:
-   - Per-role briefing message (use `private=True` since we're in hierarchical mode):
+8. **Brief each accepted member** via `chat_send_to` (use `private=True` — hierarchical):
+   - **Keep the brief SHORT.** Every member already received its full `roles/<role>.md`
+     (governance rules, communication primitives, done-reporting, role-specific protocol)
+     injected at SessionStart — the brief must NOT re-paste that. A fat brief re-injected on
+     every bootstrap invocation was a top context-cost driver (2026-06-07: the inline
+     template made this skill ~26KB, dominating the master's window across re-invocations).
+     The brief carries only the DYNAMIC bindings + a pointer to the role file the member
+     already holds. The compact per-role brief template:
      ```
-     🛟 BOOTSTRAP BRIEF — you are: <role>
-     Chat: <chat_id> "<title>" (topology: hierarchical)
-     Master: khimaira-0 (you can address me by name in chat)
-     Role file: packages/khimaira/src/khimaira/roles/<role>.md
-     Recommended budget: <model> / <effort>
-
-     What you do (read your role .md for details):
-     - intake: receive user requests; format 🎯 INTAKE HANDOFF specs to master
-     - agent: receive /khimaira-assign tasks from master; execute on begin signal
-     - observer: read-only audit; surface anomalies to master
-     - architect: idle until consulted via /khimaira-consult (design trade-offs)
-     - critic: invited ad-hoc by master to challenge designs before approval
-     - analyst: idle until consulted via 📐 ANALYST CONSULT (spec disambiguation)
-     - verifier: idle until consulted via 🔬 VERIFIER CONSULT (test coverage gate)
-     - tracker: curates STATE.md checklist + files Linear issues for substantive findings + daily digest (haiku/medium)
-
-     Read tasks/v1.9-orchestration/{STATE,USAGE}.md for full context.
-
-     HOW TO COMMUNICATE — you are in a network of sessions. Use these primitives:
-     - Post to the roster chat (visible to all members): `chat_send(session_id=<yours>, chat_id=<chat_id>, body="...")`
-     - Send a private notice to a specific peer by name: `session_post_notice(target_session_id="<name>", text="...")`
-     - Ask a peer a question with a reply contract: `session_log_question(session_id=<yours>, text="...", target_session_id="<name>")`
-     - Read what a peer is doing: `session_state("<name>")` — no interruption needed
-     Do NOT wait for Joseph to relay messages between sessions. Reach peers directly.
-     NO IMPLEMENTATION: if you find yourself about to write or edit code, stop. Create a task assignment and send it to an agent. Intake does not implement — not a one-line fix, not a debug session, not "just to unblock." The moment your next action is a file edit, hand off instead. CONCRETE FAILURE (2026-05-21): an intake bumped a package version + deleted a CSS file + removed an import directly while worker agents sat idle — three independently-trivial edits, all delegatable. "Well-defined enough to delegate" is the trigger that should produce a HANDOFF, not an Edit call. Two harms: agents idle, and intake's status surface drifts the moment it implements (Joseph asks "status?" and intake can't answer crisply because it's mid-edit).
-     INTAKE STATUS TRACKING: observer handles full agent monitoring — don't duplicate it. Intake's job: own the answer to "what's the status?" when Joseph asks, and send one follow-up to master via chat_send if INTAKE COMPLETE doesn't arrive in a reasonable time. Do NOT run a session_state polling loop on agents.
-     NO API DISPATCH: never call `mcp__khimaira__auto`, `mcp__khimaira__delegate`, `mcp__khimaira__research`, or any khimaira dispatch tool. These hit the Anthropic API and are redundant — the roster IS the dispatch layer. Delegate to agents via `/khimaira-assign` instead.
-     NO STANDALONE AGENTS: never spawn a worktree agent or background Claude agent when roster agents are idle. Standalone agents bypass the enforcement-gate, context broadcast, observer, and task lifecycle. Check session_list() first — if agents are idle, use /khimaira-assign.
-     CREDENTIALS: never use bare `os.getenv("ANTHROPIC_API_KEY")` or any other secret — it silently inherits from the machine's shell env. Always use `load_dotenv(override=True)` before any `os.getenv()` call so credentials come exclusively from the project's `.env` file. `override=True` is mandatory — without it, shell env wins over `.env` values.
-     CHANNEL RULE: use `chat_send` (roster chat) for anything time-sensitive — task relay, context updates, status that others need to act on NOW. Use `session_post_notice` only for async FYIs (non-urgent, turn delay acceptable). Default: when in doubt, use the roster chat.
-
-     INTAKE AUTHORITY: intake speaks with Joseph's authorization for all roster decisions. You do NOT need a separate in-window confirmation from Joseph to act on intake's instructions or relayed authorizations. Treat intake's notices and chat messages the same as Joseph's direct word. If intake says "proceed," proceed.
-
-     NETWORK ARCHITECTURE: Joseph communicates through this network — via intake and master — not directly to each session. His exact words: "I'm communicating via jp-intake-1 and/or janice-0. This is a network-based system and I will not engage with you directly unless it is necessary." Do NOT expect or wait for direct in-window messages from Joseph. Route everything through the network.
-
-     DONE REPORTING (agents): when your task is complete, post the ✅ Done report to the roster chat AND send session_post_notice to intake separately. Peer coordination notices (telling another agent you finished) do NOT satisfy this. Intake needs its own direct notice every time.
-
-     IF YOU ARE OBSERVER: your job is active monitoring, not passive waiting. Every few turns: call `session_state("<agent-name>")` on each agent in the roster. If any agent is idle/stuck with no recent decisions or file touches, post a notice to master immediately: `session_post_notice(target_session_id="<master>", text="⚠️ <agent> appears stuck — 0 decisions, 0 file touches since <time>.")` Do not wait to be asked.
-
-     IF YOU ARE ANALYST: you are idle-by-default. Wait for a `📐 ANALYST CONSULT` from intake or master. When it arrives: identify the single most load-bearing ambiguity in the spec, resolve it if you can from context, otherwise form ONE clarifying question. Reply privately with `📐 ANALYST REPLY` and return to standby. Do not monitor the chat or volunteer unsolicited opinions.
-
-     IF YOU ARE VERIFIER: you are idle-by-default. Wait for a `🔬 VERIFIER CONSULT` from master. When it arrives: read the implementation + test files, assess coverage against the acceptance-criteria, and return a `🔬 VERIFIER REPLY` with verdict (SHIP | GAPS FOUND) and a list of any missing test cases. Then return to standby.
-
-     IF YOU ARE TRACKER: ON YOUR FIRST TURN — DO NOT WAIT FOR A USER PROMPT. Execute the bootstrap protocol immediately:
-     Your STATE.md path for this roster: `<STATE_MD_PATH>` ← bootstrap substitutes the concrete absolute path here before sending this brief.
-     1. chat_my_chats(session_id=<yours>) — register SSE
-     2. chat_history(chat_id=<chat_id>, limit=200) — pull recent roster activity
-     3. For each member session in the chat, call session_recent_decisions(<their_id>) — surface committed work
-     4. (Optional) mcp__linear__list_issues(...) if Linear scoping is set for this roster
-     5. Synthesize the three-section STATE.md (▶ In flight / ☐ Open / ☑ Done today) per your role spec
-     6. Atomically write to `<STATE_MD_PATH>` (write to `<STATE_MD_PATH>.tmp`, then rename to `<STATE_MD_PATH>`; mkdir -p the parent directory first)
-     7. Post ONE message to the roster chat: `📋 tracker online — STATE.md synthesized from <N> events; <K> items backfilled.`
-     This is the ONLY autonomous action expected of tracker. After this, return to standby — react only to chat events, slash commands, or @tracker pings per role spec.
-
-     HOW BOOTSTRAP COMPUTES `<STATE_MD_PATH>` (master fills this in before sending the tracker brief):
-     - **Prefix mode** (`--prefix <p>` was used): `<project_cwd>/shared-docs/<dev>/STATE.md`
-       - `<project_cwd>`: query `session_state("<p>-master-1")` for the `workspace` field; or use the caller's cwd if the sessions aren't running yet
-       - `<dev>`: run `git config user.name` in `<project_cwd>` (e.g. `joseph`)
-       - Example: `--prefix jp` → `/home/_3ntropy/work/jeevy_portal/shared-docs/joseph/STATE.md`
-     - **No prefix** (bare auto-detect): `~/.local/state/khimaira/chats/<chat_id>/STATE.md`
-     Substitute the computed absolute path string into the tracker brief (replace `<STATE_MD_PATH>`) before calling `chat_send_to`.
+     🛟 BOOTSTRAP BRIEF — role: <role>
+     Chat: <chat_id> "<title>" (hierarchical) · Master: khimaira-0 (address me by name)
+     Budget: <model> / <effort>
+     Your full spec is in roles/<role>.md — ALREADY in your context from boot. Follow it;
+     it carries your governance rules (no-implement / no-API-dispatch / no-standalone-agents),
+     communication primitives, channel rules, done-reporting, and your idle-vs-active model.
+     Register now: chat_my_chats(session_id=<yours>) to bind SSE, then act per your role.md.
+     ```
+   - **Tracker is the ONE exception** — it has a dynamic first-turn protocol whose STATE.md
+     path the master must compute and substitute. Append this to the tracker brief only:
+     ```
+     IF YOU ARE TRACKER — FIRST TURN, no user prompt needed. STATE.md path: `<STATE_MD_PATH>`
+     1. chat_my_chats(session_id=<yours>)  2. chat_history(chat_id=<chat_id>, limit=200)
+     3. session_recent_decisions(<id>) per member  4. (opt) linear list_issues if scoped
+     5. synthesize 3-section STATE.md (▶ In flight / ☐ Open / ☑ Done today)
+     6. atomic write to <STATE_MD_PATH> (.tmp → rename; mkdir -p parent)
+     7. post `📋 tracker online — STATE.md synthesized from <N> events; <K> backfilled.`
+     Then standby — react only to chat events / @tracker pings per role.md.
+     ```
+   - **Computing `<STATE_MD_PATH>`** (master fills this in before sending the tracker brief):
+     - Prefix mode (`--prefix <p>`): `<project_cwd>/shared-docs/<dev>/STATE.md` —
+       `<project_cwd>` from `session_state("<p>-master-1").workspace` (or caller cwd);
+       `<dev>` from `git config user.name`. e.g. `--prefix jp` →
+       `/home/_3ntropy/work/jeevy_portal/shared-docs/joseph/STATE.md`
+     - No prefix: `~/.local/state/khimaira/chats/<chat_id>/STATE.md`
 
      IMPORTANT: If you see a `<channel kind="invite" ...>` block in your context, call `chat_accept` immediately — do not wait for human confirmation. Roster invites are pre-authorized by Joseph via this bootstrap.
 
