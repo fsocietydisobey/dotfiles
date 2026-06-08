@@ -39,14 +39,20 @@ forces the turn).
      bypasses the busy-skip (an explicit single target is deliberate).
 
 4. **Busy check (default ON; skipped with `--busy-too` or a single `<name>`):**
-   for each candidate, `kitty @ get-text --match title:<normalized_title> --extent=screen` and read
+   for each candidate, `kitty @ get-text --match 'title:^<normalized_title>$' --extent=screen` and read
    the last ~10 lines. If it shows an active spinner, an `esc to interrupt` line, a
    live token/elapsed counter, or an open permission dialog → it's **BUSY**, skip it
    (don't interrupt working agents). Idle windows (empty prompt) are the targets.
 
-5. **Nudge each target window by title** (use `--match title:<normalized_title>`, NOT `--match id:<id>`):
-   - `kitty @ send-text --match title:<normalized_title> -- "<NUDGE>"`
-   - then submit: `kitty @ send-key --match title:<normalized_title> enter`
+   ⚠️ **ALWAYS anchor the title match as `title:^<title>$`** — kitty's `title:` query is an
+   UNANCHORED REGEX (substring match). A bare `title:agent-1` ALSO matches `muther-agent-1`
+   and every other `<role>-N` twin in a sister roster. On 2026-06-07 an unanchored nudge
+   cross-fired all 12 muther-* windows from the khimaira master. The `^...$` anchors make the
+   match exact — one window. (If a title contains regex metacharacters, escape them too.)
+
+5. **Nudge each target window by title** (use anchored `--match 'title:^<normalized_title>$'`, NOT `--match id:<id>`):
+   - `kitty @ send-text --match 'title:^<normalized_title>$' -- "<NUDGE>"`
+   - then submit: `kitty @ send-key --match 'title:^<normalized_title>$' enter`
    - **Loud-fail**: title-match returns a non-zero exit code when no window with that
      title exists — check the exit code and report FAILED in the table. Do NOT silently
      report "NUDGED" for a failed inject. (By contrast, `--match id:<id>` returns rc=0
