@@ -57,6 +57,25 @@ If `consume_handoffs` returns non-empty, surface them with **directive framing**
 - `mcp__khimaira__scarlet_scan_features(path=<target_path>)` — if features-organized; returns [] cleanly otherwise
 - If scarlet returns nothing useful (project isn't features-organized, e.g. Python monorepo): fall through to `Bash: ls -la <target_path>` + maybe `Glob` for `**/*.py` count by directory
 
+### 4.5 Oracle orientation — khimaira/jeevy only (~1-2 tool calls)
+
+If `target_path` is the **khimaira** monorepo or the **jeevy_portal** codebase, ask the
+local oracle for a fast narrative orientation BEFORE spending grep/seance calls — it's
+~2s, zero API cost, and gives prose you can't get from a structural scan:
+
+- Pick `project`: `"khimaira"` if the path is the khimaira repo, `"jeevy"` if it's
+  jeevy_portal. (Skip this whole step for any other codebase — no oracle exists for it.)
+- No question given → `mnemosyne_ask("Give a one-paragraph orientation: what is this
+  codebase, its main subsystems, and the vocabulary a new contributor needs?",
+  project=<p>)`.
+- Question given → `mnemosyne_ask(<question>, project=<p>)` for a narrative answer, THEN
+  still run Step 5 (seance/grep) to locate + VERIFY the real code the oracle described.
+
+Treat the oracle's output as a FALLIBLE orientation, not truth: it's a periodic snapshot
+(blind to recent changes) and can be confidently wrong on infra/cross-codebase specifics.
+Every claim you carry into the synthesis must be confirmed against a real file (Step 5).
+If the oracle is unreachable (fail-open hint), just skip to Step 5 — no harm.
+
 ### 5. Focused search (~3-5 tool calls, only if `question` was provided)
 
 - `mcp__khimaira__seance_list_projects()` — confirm an index exists. The project name is usually the basename of `target_path`.
