@@ -84,23 +84,35 @@ skipped" is not coverage.
 Insert the formatted block into `## 2. Escaped bugs` of the corpus file (write to `.tmp`,
 rename). Don't disturb the meta-class / forward-strategy / schema sections.
 
-**5. Distill into mnemosyne for retrieval**
+**5. Store the structured pair in mnemosyne (DIRECT — not Haiku-distilled)**
 
-The corpus row IS a training/retrieval example. Push it so future sessions retrieve similar
-escapes at test-write/review time:
+The corpus row IS the training/retrieval example, and it's already curated — so store it
+**directly** via `store.append`, NOT `distill()`. `distill()` re-runs a Haiku distiller that
+would mangle the precise `situation → seam-class + catching-test` signal the fine-tune needs.
+Store the pair as `(instruction = the situation, response = seam-class + catching-test)`:
 ```bash
-/home/_3ntropy/dev/khimaira/.venv/bin/python3 - <<'PYEOF'
-from khimaira.hooks.mnemosyne_client import distill
-import json
-result = distill(
+/home/_3ntropy/dev/ai-lab/mnemosyne/.venv/bin/python3 - <<'PYEOF'
+from mnemosyne import store
+rec_id = store.append(
     domain="escaped-bugs:PROJECT_HERE",
-    transcript="""<the full structured entry: slug, seam-class, symptom, root-cause, why-missed, catching-test>""",
-    session_slug="SESSION_NAME_HERE",
+    instruction=(
+        "Escaped bug — green tests, broke live. "
+        "Symptom: SYMPTOM_HERE. "
+        "The test mocked: MOCK_ASSUMPTION_HERE (code-shape: CODE_SHAPE_HERE). "
+        "What seam-class is this and what catching-test closes it?"
+    ),
+    response=(
+        "Seam-class: SEAM_CLASS_HERE. "
+        "Catching-test: L<n> — CATCHING_TEST_PATTERN_HERE."
+    ),
+    source_session="SESSION_NAME_HERE",
 )
-print("FAIL" if result is None else json.dumps(result))
+print("stored", rec_id)
 PYEOF
 ```
-(mnemosyne on 8766; fail-open — if unreachable, the corpus-file append still succeeded; note it.)
+This lands in `~/dev/ai-lab/mnemosyne/data/escaped-bugs:<project>.jsonl` (append-only). It is
+both retrieval-ready (Phase 1) and fine-tune-ready (Phase 3 reads the same store). Fail-open:
+if the write fails, the corpus-file append (step 4) still succeeded — note it.
 
 **6. Report + smoke-verify**
 
