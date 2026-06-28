@@ -5,8 +5,9 @@ a code change or a test you're about to write/review, retrieve the most-similar 
 from the corpus and surface their **seam-class + catching-test pattern** — so you add the real
 test BEFORE the bug ships, not after a live failure teaches you.
 
-Use it: at test-write time, in code review, and — wired into the verifier role — before any
-SHIP verdict on a change that touches a node-bearing / data-flow / DB / env surface.
+Use it: at test-write time, in code review, and — wired into the gatekeeper role (lean; the
+legacy verifier it absorbs) — before any SHIP verdict on a change that touches a node-bearing
+/ data-flow / DB / env surface.
 
 ## Usage
 
@@ -71,8 +72,9 @@ Recommended catching-tests BEFORE this ships:
 
 - **No match ≠ safe.** A small corpus has blind spots; absence of a match is not coverage.
   Always fall through to the generic seam checklist (L1–L4 + L0).
-- This is the read primitive the **verifier gate** uses: a SHIP verdict on a seam-touching
-  change should be preceded by a recall + a named catching-test (see verifier.md).
+- This is the read primitive the **gatekeeper gate** uses (lean; legacy: verifier gate): a
+  SHIP verdict on a seam-touching change should be preceded by a recall + a named
+  catching-test (see gatekeeper.md / legacy verifier.md).
 - Pairs with `/khimaira-distill-bugs` (capture). Capture grows the corpus; recall spends it.
 - The corpus's meta-lesson applies to recall too: if you recommend a catching-test, it must be
   one that EXECUTES (not a skip-guarded integration test that silently no-ops).

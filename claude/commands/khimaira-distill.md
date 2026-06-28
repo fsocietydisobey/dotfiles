@@ -49,10 +49,10 @@ Fan-out steps:
 
 Skip the "general / hard stop" exit. Proceed to Step 3 (project detection) → Step 4 (summary write/parse) → Step 5 (multi-distill loop) → Step 6 (per-domain report).
 
-**Non-master "general" branch** (session is an agent/observer/critic/verifier/tracker/intake/analyst — not a domain lead and not master):
+**Non-master "general" branch** (session is an agent/consultant/gatekeeper/observer/critic/verifier/tracker/intake/analyst/architect — not a domain lead and not master):
 ```
 ⚠️ /khimaira-distill from a non-lead non-master session ("SESSION_NAME") doesn't have a natural domain target.
-For agent/critic/verifier/analyst/observer/tracker/intake sessions, knowledge capture happens automatically via:
+For agent/consultant/gatekeeper/critic/verifier/analyst/architect/observer/tracker/intake sessions, knowledge capture happens automatically via:
 - the PostToolUse `harvest_approval` hook (per approved task)
 - the session-end Stop hook (on session close)
 Manual /khimaira-distill from these roles is rarely the right move.

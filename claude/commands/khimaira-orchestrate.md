@@ -69,8 +69,10 @@ For each peer:
 5. Draft full prose, move your task to `done` via `chat_task_update`.
 6. Orchestrator approves or requests changes — rework loops back to `in_progress`.
 
-Recommended budget per role: master = Opus 4.7 + ultrathink, agent = Sonnet 4.6 + think,
-observer = Haiku 4.5 + default. Rationale + when-to-deviate: docs/khimaira-chat.md#token-cost-budgeting.
+Recommended budget per role (lean): master = opus/max, consultant = opus/max,
+gatekeeper = opus/high, agent = sonnet/medium. Legacy: observer = sonnet/low,
+architect/analyst = opus/max, critic/verifier = scope-dependent. Canonical table +
+when-to-deviate: docs/khimaira-chat.md#token-cost-budgeting (and `ROLE_BUDGET` in chats.py).
 
 Cross-pollinate freely — peers should chat about lane boundaries before drafting if anything's ambiguous.
 ```

@@ -33,9 +33,10 @@ forces the turn).
 
 3. **Select targets** (build the list; print it before nudging):
    - **Default (no `--prefix`):** normalized titles matching khimaira-roster worker
-     roles — `agent-\d+`, `(backend|data|frontend)-lead-\d+`, `architect-\d+`,
-     `analyst-\d+`, `critic-\d+`, `verifier-\d+`, `observer-\d+`, `intake-\d+`,
-     `tracker-\d+`. **EXCLUDE** master (`khimaira-0`, `*-0`, the window you're running
+     roles — `agent-\d+`, `consultant-\d+`, `gatekeeper-\d+`,
+     `(backend|data|frontend)-lead-\d+`, `architect-\d+`, `analyst-\d+`, `critic-\d+`,
+     `verifier-\d+`, `observer-\d+`, `intake-\d+`, `tracker-\d+`. **EXCLUDE** master
+     (`khimaira-0`, `*-0`, the window you're running
      in) — never nudge yourself. **EXCLUDE** any `jp-*` title (the other roster).
    - **`--prefix <p>`:** only titles starting with `<p>-`, same role patterns, and
      exclude that roster's master (`<p>-master-*`; for jp, also `janice-0`).
@@ -67,7 +68,14 @@ forces the turn).
      readback confirmation. (This is why we don't rely on exit codes: a kitty match that
      resolves zero windows still returns rc=0 — a SILENT no-op. The readback is the only
      trustworthy success signal. The daemon's auto-wake uses the same nonce-readback guard.)
-   - On confirmed landing, submit: `kitty @ send-key --match id:<id> enter`
+   - On confirmed landing, submit + **confirm submission**: `kitty @ send-key --match id:<id> enter`,
+     then re-read `kitty @ get-text --match id:<id> --extent=screen` and confirm the `<NUDGE>`
+     text is **no longer on the `❯` input line** (it moved up into history / the window now shows
+     a spinner = submitted). If the text is **still sitting at the `❯` prompt**, the enter didn't
+     take — **retry `kitty @ send-key --match id:<id> enter` up to 3×**, re-checking each time. A
+     single enter occasionally no-ops (a render/timing race, or — for the daemon's title-match
+     path — a flickering activity marker on the title); only report **NUDGED** once the prompt is
+     confirmed CLEARED. If still sitting after 3 retries, report **FAILED** (`enter did not submit`).
    - `<NUDGE>` (one line — keep it single-line so `enter` submits it cleanly):
      `⏰ nudge from master: call chat_my_chats(session_id=<your-session-id>) to re-register SSE, then check your inbox + the roster chat. Resume any owed/in-progress task. If you were rate-limited and it has cleared, continue. If genuinely idle with nothing owed, post a one-line standby to the chat. Act now — don't wait.`
 

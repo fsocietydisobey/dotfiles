@@ -44,9 +44,12 @@
 set -euo pipefail
 
 # --- role lookups ---
-role_model()  { case "$1" in master|architect|intake) echo "opus[1m]" ;; *) echo sonnet ;; esac; }  # master/architect → 1M context 2026-06-08 (200k→1M: master legitimately accumulates 150k+ orchestrating 13 sessions = 75% of 200k but 15% of 1M; far fewer compactions). observer/tracker: haiku→sonnet 2026-06-06.
-role_effort() { case "$1" in architect) echo max ;; master) echo high ;; observer) echo low ;; *) echo medium ;; esac; }
-role_tier()   { case "$1" in master) echo 1 ;; architect|analyst|verifier) echo 2 ;; intake) echo 3 ;; backend-lead|data-lead|frontend-lead) echo 3 ;; agent) echo 4 ;; critic) echo 5 ;; observer) echo 6 ;; tracker) echo 7 ;; *) echo 4 ;; esac; }
+# Lean roster (2026-06-28): consultant=architect∪analyst, gatekeeper=critic∪verifier;
+# master absorbs intake. Lean tiers signed off by Joseph. Legacy cases kept (additive)
+# so jp/janice + any --architect/--critic/etc. opt-in seats still resolve.
+role_model()  { case "$1" in master|architect|intake) echo "opus[1m]" ;; consultant|gatekeeper) echo opus ;; *) echo sonnet ;; esac; }
+role_effort() { case "$1" in architect|consultant) echo max ;; master|gatekeeper) echo high ;; observer) echo low ;; *) echo medium ;; esac; }
+role_tier()   { case "$1" in master) echo 1 ;; architect|analyst|verifier|consultant) echo 2 ;; gatekeeper|intake|backend-lead|data-lead|frontend-lead) echo 3 ;; agent) echo 4 ;; critic) echo 5 ;; observer) echo 6 ;; tracker) echo 7 ;; *) echo 4 ;; esac; }
 # Column assignment:
 #   Col 1 (left, tall): master, intake, architect, analyst, verifier — primary/thinkers
 #   Col 2 (right, stacked): agents / leads                           — executors + domain leads
@@ -64,12 +67,52 @@ infer_role() {
     echo "${stripped%-*}"
 }
 
+# --- auto-roster-naming pool + picker (C1b) ---
+# Curated creature/mythological codenames (livyatan/muther vibe). The pool is
+# self-NON-NESTING by construction: no member is a substring of another — that is the
+# substring-safety guarantee (prevents the agent-1↔muther-agent-1 reaper-cascade class).
+# If you add a word, keep it non-nesting vs every existing member.
+_CODENAME_POOL=(chimera griffin kraken phoenix wyvern basilisk cerberus sphinx
+                manticore kelpie wendigo golem thunderbird minotaur nessie)
+
+_pick_codename() {
+    # Active roster prefixes from LIVE kitty window titles (every roster session is a
+    # kitty window, so titles capture all in-use names — the source wake/reap key on).
+    # A candidate is rejected if it is a SUBSTRING or SUPERSTRING of any active title
+    # token — structural collision safety, not just exact-match (this is what prevents
+    # the agent-1↔muther-agent-1 reaper-cascade class). The roster script runs inside
+    # kitty, so a bare `kitty @ ls` has control access (no --to needed).
+    local active cand a nested
+    active=$(kitty @ ls 2>/dev/null | python3 -c "
+import json,sys
+try:
+    d=json.load(sys.stdin)
+    print('\n'.join((w.get('title') or '') for o in d for t in o.get('tabs',[]) for w in t.get('windows',[])))
+except Exception:
+    pass" 2>/dev/null)
+    for cand in "${_CODENAME_POOL[@]}"; do
+        nested=false
+        while IFS= read -r a; do
+            a="${a//[^A-Za-z0-9_-]/}"        # strip kitty decoration glyphs (✳/space)
+            [[ -z "$a" ]] && continue
+            if [[ "$a" == *"$cand"* || "$cand" == *"$a"* ]]; then nested=true; break; fi
+        done <<< "$active"
+        [[ "$nested" == false ]] && { echo "$cand"; return 0; }
+    done
+    return 1  # pool exhausted — caller fails loud
+}
+
 # --- parse args ---
-PROJECT="khimaira"; MODE="start"
+PROJECT="khimaira"; MODE="start"; PROJECT_EXPLICIT=false  # auto-name iff no explicit project
 OPT_PREFIX=""; OPT_MASTER=""; OPT_INTAKE=""
-OPT_AGENTS=3
-OPT_ANALYST=true; OPT_VERIFIER=true; OPT_TRACKER=true
-OPT_OBSERVER=false; OPT_ARCHITECT=true; OPT_CRITIC=true  # observer retired 2026-06-06 (folded into tracker; daemon guards do the structural watch) — --observer force-includes
+OPT_AGENTS=1  # lean default: 1 agent, scale with --agents N
+# LEAN ROSTER (2026-06-28) is the default: master + consultant + gatekeeper + agent(s).
+OPT_CONSULTANT=true; OPT_GATEKEEPER=true
+OPT_INTAKE_SEAT=false  # intake folded into master; opt back in with --intake-seat
+# Legacy seats are now OPT-IN (lean roster retires them): architect/analyst → consultant,
+# critic/verifier → gatekeeper, tracker → drain-before-idle hook. Flags still force them.
+OPT_ANALYST=false; OPT_VERIFIER=false; OPT_TRACKER=false
+OPT_OBSERVER=false; OPT_ARCHITECT=false; OPT_CRITIC=false
 OPT_BACKEND_LEAD=false; OPT_DATA_LEAD=false; OPT_FRONTEND_LEAD=false
 OPT_LAYOUT="grid"; OPT_ORDER=""; OPT_CWD=""
 OPT_NO_PROXY=false
@@ -94,6 +137,11 @@ while [[ $# -gt 0 ]]; do
         --no-architect) OPT_ARCHITECT=false; unset "FORCE_INCLUDE[architect]"; shift ;;
         --critic)           OPT_CRITIC=true;        FORCE_INCLUDE[critic]=1;        shift ;;
         --no-critic)        OPT_CRITIC=false;       unset "FORCE_INCLUDE[critic]";  shift ;;
+        --consultant)       OPT_CONSULTANT=true;    FORCE_INCLUDE[consultant]=1;    shift ;;
+        --no-consultant)    OPT_CONSULTANT=false;   unset "FORCE_INCLUDE[consultant]"; shift ;;
+        --gatekeeper)       OPT_GATEKEEPER=true;    FORCE_INCLUDE[gatekeeper]=1;    shift ;;
+        --no-gatekeeper)    OPT_GATEKEEPER=false;   unset "FORCE_INCLUDE[gatekeeper]"; shift ;;
+        --intake-seat)      OPT_INTAKE_SEAT=true;   FORCE_INCLUDE[intake]=1;        shift ;;
         --backend-lead)     OPT_BACKEND_LEAD=true;  FORCE_INCLUDE[backend-lead]=1;  shift ;;
         --no-backend-lead)  OPT_BACKEND_LEAD=false; unset "FORCE_INCLUDE[backend-lead]"; shift ;;
         --data-lead)        OPT_DATA_LEAD=true;     FORCE_INCLUDE[data-lead]=1;     shift ;;
@@ -104,6 +152,7 @@ while [[ $# -gt 0 ]]; do
         --order)        OPT_ORDER="$2";    shift 2 ;;
         --cwd)          OPT_CWD="$2";      shift 2 ;;
         --no-proxy)     OPT_NO_PROXY=true; shift ;;
+        --primary)      OPT_NO_PROXY=true; shift ;;  # account routing: direct to PRIMARY (no backup proxy); default is backup
         --*)            echo "Unknown flag: $1" >&2; exit 1 ;;
         *)              POSITIONAL+=("$1"); shift ;;
     esac
@@ -115,8 +164,21 @@ done
 if [[ ${#POSITIONAL[@]} -eq 1 && ( "${POSITIONAL[0]}" == "start" || "${POSITIONAL[0]}" == "resume" ) ]]; then
     MODE="${POSITIONAL[0]}"
 else
-    [[ ${#POSITIONAL[@]} -gt 0 ]] && PROJECT="${POSITIONAL[0]}"
+    [[ ${#POSITIONAL[@]} -gt 0 ]] && { PROJECT="${POSITIONAL[0]}"; PROJECT_EXPLICIT=true; }
     [[ ${#POSITIONAL[@]} -gt 1 ]] && MODE="${POSITIONAL[1]}"
+fi
+
+# --- auto-roster-naming (C1b): bare `roster start` with no explicit project/prefix/master
+# → pick an unused, collision-safe creature codename as the roster prefix. `roster <name>`
+# (or --prefix/--master) overrides. Launcher-side, live immediately. ---
+if [[ "$MODE" == "start" && "$PROJECT_EXPLICIT" == false \
+      && -z "$OPT_PREFIX" && -z "$OPT_MASTER" ]]; then
+    _codename=$(_pick_codename) || {
+        echo "roster: no collision-safe codename free in the pool — pass an explicit name (\`roster <name> start\`)." >&2
+        exit 1
+    }
+    PROJECT="$_codename"; PROJECT_EXPLICIT=true
+    echo "  → auto-named roster: $PROJECT (collision-safe; override with \`roster <name> start\`)"
 fi
 
 # --- project defaults ---
@@ -149,7 +211,11 @@ add_session() {
 }
 
 add_session "$MASTER"  master
-add_session "$INTAKE"  intake
+# Lean roster default seats: consultant + gatekeeper + agent(s). Intake folded into
+# master (opt back in with --intake-seat). Legacy thinker/gate seats are opt-in below.
+$OPT_INTAKE_SEAT && add_session "$INTAKE" intake
+$OPT_CONSULTANT && add_session "${PREFIX}consultant-1" consultant
+$OPT_GATEKEEPER && add_session "${PREFIX}gatekeeper-1" gatekeeper
 for i in $(seq 1 "$OPT_AGENTS"); do add_session "${PREFIX}agent-${i}" agent; done
 $OPT_OBSERVER  && add_session "${PREFIX}observer-1"  observer
 $OPT_ARCHITECT && add_session "${PREFIX}architect-1" architect
@@ -440,13 +506,14 @@ do_launch() {
     shift 4
     local slot="$ROSTER_INSTANCE_ID:$name"
     local wid
-    # Route this roster's sessions through the khimaira concurrency-proxy when
-    # KHIMAIRA_PROXY_URL is set (e.g. KHIMAIRA_PROXY_URL=http://127.0.0.1:8741 roster jp).
-    # ENABLE_TOOL_SEARCH=1 is mandatory — ANTHROPIC_BASE_URL disables MCP tool-search
-    # otherwise. Scoped to THIS roster launch (per-session --env), not global.
-    local proxy_env=()
+    # Account routing: ANTHROPIC_BASE_URL → backup proxy when KHIMAIRA_PROXY_URL is set
+    # (default; --primary/--no-proxy leaves it unset → direct to primary). ENABLE_TOOL_SEARCH=1
+    # is set on BOTH paths ALWAYS — ANTHROPIC_BASE_URL disables MCP tool-search, but we don't
+    # rely on the proxy path to carry it (belt-and-suspenders vs the bloat; settings.json is
+    # only a backstop). Scoped per-session (--env), not global.
+    local proxy_env=(--env "ENABLE_TOOL_SEARCH=1")
     if [[ -n "${KHIMAIRA_PROXY_URL:-}" ]]; then
-        proxy_env=(--env "ANTHROPIC_BASE_URL=$KHIMAIRA_PROXY_URL" --env "ENABLE_TOOL_SEARCH=1")
+        proxy_env+=(--env "ANTHROPIC_BASE_URL=$KHIMAIRA_PROXY_URL")
     fi
     wid=$(kitty @ "${KITTY_TO[@]}" launch \
         --type=window \
@@ -679,10 +746,11 @@ do_hub_layout() {
     fi
     IFS=: read -r _name _model _effort _sflag <<< "$anchor_entry"
     printf "  launching %-22s %s/%s (new tab)\n" "$_name" "$_model" "$_effort"
-    # Same proxy routing as do_launch (the anchor bypasses do_launch).
-    local _anchor_proxy_env=()
+    # Same account routing as do_launch (the anchor bypasses do_launch): ENABLE_TOOL_SEARCH
+    # ALWAYS; ANTHROPIC_BASE_URL only on the backup path.
+    local _anchor_proxy_env=(--env "ENABLE_TOOL_SEARCH=1")
     if [[ -n "${KHIMAIRA_PROXY_URL:-}" ]]; then
-        _anchor_proxy_env=(--env "ANTHROPIC_BASE_URL=$KHIMAIRA_PROXY_URL" --env "ENABLE_TOOL_SEARCH=1")
+        _anchor_proxy_env+=(--env "ANTHROPIC_BASE_URL=$KHIMAIRA_PROXY_URL")
     fi
     local _anchor_slot="$ROSTER_INSTANCE_ID:$_name"
     id_la=$(kitty @ "${KITTY_TO[@]}" launch \

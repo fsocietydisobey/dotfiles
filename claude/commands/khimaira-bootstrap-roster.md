@@ -20,14 +20,19 @@ with its role binding.
 /khimaira-bootstrap-roster
 ```
 
-Reads `session_list()`, applies `infer_role_from_name()` (intake-* → intake, agent-* → agent,
-observer-* → observer, architect-* → architect, critic-* → critic, analyst-* → analyst,
-verifier-* → verifier, tracker-* → tracker, master/master-* → master),
-filters to sessions active within the last 30 minutes, builds the roster automatically.
+Reads `session_list()`, applies `infer_role_from_name()`. **Lean roster (default) roles:**
+master/master-* → master, consultant-* → consultant, gatekeeper-* → gatekeeper,
+agent-* → agent. **Legacy roles (still recognized — jp/janice rosters use them):**
+intake-* → intake, observer-* → observer, architect-* → architect, critic-* → critic,
+analyst-* → analyst, verifier-* → verifier, tracker-* → tracker. Filters to sessions
+active within the last 30 minutes, builds the roster automatically.
 
 **Explicit-map mode** — for arbitrary session names:
 
 ```
+# Lean roster (default shape):
+/khimaira-bootstrap-roster consultant=synth gatekeeper=qa agent=worker-a,worker-b
+# Legacy roster (still supported):
 /khimaira-bootstrap-roster intake=front-desk agent=worker-a,worker-b observer=auditor architect=synth critic=devil analyst=disambig verifier=qa
 ```
 
@@ -60,7 +65,10 @@ only — other sessions (bare `agent-1` etc.) are ignored. Title defaults to
    - Scan for `--title "<text>"` flag, extract.
    - Scan for `--prefix <word>` flag, extract (e.g. `jp`).
    - If remaining args contain `=`: explicit-map mode. Parse each `role=name[,name]` token.
-     - Valid roles: `intake`, `agent`, `observer`, `architect`, `critic`, `master`.
+     - Valid roles — lean: `master`, `consultant`, `gatekeeper`, `agent`. Legacy (still
+       accepted): `intake`, `observer`, `architect`, `critic`, `analyst`, `verifier`,
+       `tracker`. The daemon's `VALID_ROLES` is the source of truth (it auto-derives from
+       `packages/themis/src/themis/rules/*.yaml`); this list MUST stay a superset-or-equal.
      - Invalid role token → render usage + stop.
    - If `--prefix` is set and no `=` args: prefix-auto-detect mode (see step 4b).
    - If no remaining args and no prefix: auto-detection mode (use `infer_role_from_name`).
@@ -85,9 +93,9 @@ only — other sessions (bare `agent-1` etc.) are ignored. Title defaults to
    - If no sessions matched either way: print
      ```
      ⚠️ No sessions matched the naming convention.
-     For bare names:   spawn intake-*, agent-*, observer-*, architect-*, critic-*
-     For prefix names: spawn <prefix>-agent-1, <prefix>-observer-1, etc. then re-run with --prefix <prefix>
-     OR use explicit map: /khimaira-bootstrap-roster intake=<name> agent=<name>,...
+     For bare names (lean):   spawn consultant-*, gatekeeper-*, agent-* (legacy also ok: intake-*, observer-*, architect-*, critic-*)
+     For prefix names: spawn <prefix>-agent-1, <prefix>-gatekeeper-1, etc. then re-run with --prefix <prefix>
+     OR use explicit map: /khimaira-bootstrap-roster consultant=<name> gatekeeper=<name> agent=<name>,...
      ```
      Stop.
 
@@ -98,13 +106,12 @@ only — other sessions (bare `agent-1` etc.) are ignored. Title defaults to
      master in the map (would be a duplicate).
    - Print intended roster preview before creating the chat:
      ```
-     📋 Roster preview:
-       master:    khimaira-0 (you)
-       intake:    intake-1 (b6d1ec45...)
-       agent:     agent-1 (0a44f7b3...), agent-2 (...), agent-3 (...)
-       observer:  observer-1 (...)
-       architect: architect-1 (...)
-       critic:    critic-1 (...)
+     📋 Roster preview (lean shape):
+       master:      khimaira-0 (you)
+       consultant:  consultant-1 (b6d1ec45...)
+       gatekeeper:  gatekeeper-1 (...)
+       agent:       agent-1 (0a44f7b3...), agent-2 (...), agent-3 (...)
+     (Legacy rosters also show: intake / observer / architect / critic / analyst / verifier / tracker)
      Title: <inferred or --title>
      ```
 
@@ -208,7 +215,7 @@ only — other sessions (bare `agent-1` etc.) are ignored. Title defaults to
    Read recent chat history (`chat_history(chat_id, limit=50)`) for context BEFORE
    acting — there may be in-flight tasks, agreed conventions, or context updates you
    missed. Treat the existing 📋 CONTEXT UPDATE in history as your project context;
-   if none exists, post a notice to intake asking master to post one. Then standby."
+   if none exists, ask master to post one (lean: master is the front door; legacy: notice intake). Then standby."
 
 7. **Wait for invite acceptance** (new-chat path only):
    - Poll every 3s for up to 60s. Each iteration call
@@ -245,6 +252,13 @@ only — other sessions (bare `agent-1` etc.) are ignored. Title defaults to
      7. post `📋 tracker online — STATE.md synthesized from <N> events; <K> backfilled.`
      Then standby — react only to chat events / @tracker pings per role.md.
      ```
+   - **Consultant + gatekeeper are idle-by-default consult/gate roles** (like the legacy
+     architect/critic/analyst/verifier they replace). Their brief must NOT tell them to start
+     working — they sit idle until master consults (`consultant`) or dispatches a
+     `gate_required` task (`gatekeeper`). The compact brief above already handles this via
+     "act per your role.md" + their role.md's idle-vs-active model; just do NOT append any
+     "begin / start on the backlog" line for these two. Vary only their one role-specific
+     "what you do when consulted/gated" bullet.
    - **Computing `<STATE_MD_PATH>`** (master fills this in before sending the tracker brief):
      - Prefix mode (`--prefix <p>`): `<project_cwd>/shared-docs/<dev>/STATE.md` —
        `<project_cwd>` from `session_state("<p>-master-1").workspace` (or caller cwd);
@@ -259,14 +273,14 @@ only — other sessions (bare `agent-1` etc.) are ignored. Title defaults to
      Failure mode (observed twice — 2026-05-19, 2026-05-21): master/agent posts a message, context compacts, next turn doesn't re-register, real-time delivery breaks silently. Session appears online but receives nothing. In the 2026-05-21 incident, jp master (janice-0) went silent for ~15h with the roster waiting.
      Without this call, you will NOT receive chat_send messages as they arrive — you'll only see them on your next user-prompted turn, making real-time coordination impossible.
      Your session_id is in the `🆔 khimaira session_id` block at the top of your context. Pass it to chat_my_chats every turn.
-     After calling chat_my_chats: read recent chat history for a `📋 CONTEXT UPDATE v1` — that is your project context. If none exists, post a notice to intake asking master to post one. Do NOT begin implementation without it.
+     After calling chat_my_chats: read recent chat history for a `📋 CONTEXT UPDATE v1` — that is your project context. If none exists, ask master to post one (lean roster: master is the front door, no intake seat; legacy roster: notice intake). Do NOT begin implementation without it.
 
      CHANNEL REMINDER (now that real-time is active):
      `chat_send` → real-time delivery to all chat members. Use for anything time-sensitive.
      `session_post_notice` → turn-gated, lands on next prompted turn. Use for async FYIs only.
      Default: when in doubt, use `chat_send`.
 
-     Question routing: route questions to INTAKE first (not master/Joseph, not silent). Intake resolves or escalates. Use `session_post_notice(target_session_id="<intake-name>", text="<question>")`.
+     Question routing: route questions to MASTER first (lean roster — master is the front door; no intake seat). Master resolves or escalates. Use `chat_send_to(chat_id=<chat_id>, to=["<master-name>"], body="<question>")`. (Legacy roster with an intake seat: route to intake instead.)
      Standby.
      ```
    - Vary the "what you do" line to be role-specific (only the bullet for THIS role).
@@ -276,18 +290,15 @@ only — other sessions (bare `agent-1` etc.) are ignored. Title defaults to
    **New chat created (step 6 path):**
    ```
    ✅ Roster live: <chat_id> "<title>" (hierarchical, N members briefed)
-     • master:    khimaira-0
-     • intake:    intake-1
-     • agent:     agent-1, agent-2, agent-3
-     • observer:  observer-1
-     • analyst:   analyst-1 (if present)
-     • verifier:  verifier-1 (if present)
-     • architect: architect-1
-     • critic:    critic-1
+     • master:      khimaira-0
+     • consultant:  consultant-1 (if present)
+     • gatekeeper:  gatekeeper-1 (if present)
+     • agent:       agent-1, agent-2, agent-3
+     (Legacy roles if present: intake / observer / architect / critic / analyst / verifier / tracker)
    N pending acceptance: [<unaccepted names if any>]
 
-   Next: type a request — intake-1 will receive it via the user-facing flow.
-   (Or address master directly to bypass intake.)
+   Next: type a request — master receives it directly (master is the front door in the
+   lean roster; no separate intake seat). (Legacy roster: intake-1 is the user-facing relay.)
    ```
 
    **Members added to existing chat (step 6b path):**
@@ -374,8 +385,8 @@ and Anthropic rate limits allow.
 
 ## See also
 
-- `/khimaira-spawn-architect` — spawn a single architect sidecar (architect-only flow)
-- `/khimaira-spawn-intake` — spawn a single intake (intake-only flow)
+- `/khimaira-spawn-architect` — spawn a single architect sidecar (LEGACY; lean uses consultant)
+- `/khimaira-spawn-intake` — spawn a single intake (LEGACY; lean master absorbs intake)
 - `/khimaira-assign` — once roster is live, delegate work to agents
-- `/khimaira-consult` — once roster is live, consult the architect
+- `/khimaira-consult` — once roster is live, consult the consultant (lean) / architect (legacy)
 - `/khimaira-deputize` — pause master + transfer role to a vice (separate from bootstrap)

@@ -46,3 +46,11 @@ Brings all in-flight work to a clean stop, posts a handoff, sets the wind-down s
 ## When NOT to use
 - Mid-task when an agent is in the middle of a critical operation (wait for a clean checkpoint)
 - If a B3 gate just opened and the reviewer is about to post (let the gate close first)
+
+## Roster swap (retire this roster → spin a fresh one, no manual context copy)
+The wind-down handoff is `scope_cwd`-scoped to the project dir, so a NEW roster started in
+the SAME dir auto-reads it. Two steps:
+1. `/khimaira-wind-down` here (writes the handoff + MASTER-HANDOFF.md, sets the sentinel).
+2. `roster start` in the same project dir → the new (auto-named) master boots, its
+   SessionStart hook surfaces this handoff, and it continues from your checkpoint.
+No manual copy needed — the handoff IS the transfer. (Lean-roster swap flow, 2026-06-28.)

@@ -20,8 +20,9 @@ cleanup safe: it targets the prefix's sessions and the guard protects the active
 
 ## Args
 
-- **(none)** — the un-prefixed khimaira roster (roles: `agent-N`, `architect-N`,
-  `analyst-N`, `critic-N`, `verifier-N`, `observer-N`, `intake-N`, `tracker-N`,
+- **(none)** — the un-prefixed khimaira roster (lean roles: `consultant-N`,
+  `gatekeeper-N`, `agent-N`; legacy roles: `architect-N`, `analyst-N`, `critic-N`,
+  `verifier-N`, `observer-N`, `intake-N`, `tracker-N`; plus
   `(backend|data|frontend)-lead-N`, `khimaira-N`). EXCLUDES any `jp-*` (the other roster).
 - **`--prefix <p>`** — a prefixed roster (e.g. `--prefix jp` → only `jp-*`). NEVER
   cross-deletes the other roster.
@@ -33,7 +34,7 @@ cleanup safe: it targets the prefix's sessions and the guard protects the active
 2. `mcp__khimaira__session_list()` — all sessions (name + id + last_active_age_s).
 3. **Build the target set** — sessions whose name matches the roster role-pattern for
    the prefix:
-   - **no prefix:** name matches `^(agent|architect|analyst|critic|verifier|observer|intake|tracker)-\d+$`
+   - **no prefix:** name matches `^(agent|consultant|gatekeeper|architect|analyst|critic|verifier|observer|intake|tracker)-\d+$`
      or `^(backend|data|frontend)-lead-\d+$` or `^khimaira-\d+$`. EXCLUDE any name
      starting `jp-`. EXCLUDE the current master (`khimaira-0` / self).
    - **`--prefix p`:** name starts `p-`, same role suffixes. EXCLUDE that roster's

@@ -26,10 +26,19 @@ None. Always lists every accepted chat the caller is in.
 4. **Lookup recommended budget per role** — fixed table (matches `ROLE_BUDGET` constant in `packages/khimaira/src/khimaira/monitor/chats.py`):
 
 ```
-master    → /model opus,   /effort max
-agent     → /model sonnet, /effort medium
-observer  → /model haiku,  /effort default
-critic    → (no default — orchestrator's discretion based on scope)
+# Lean roster (default):
+master      → /model opus,  /effort max
+consultant  → /model opus,  /effort max     (design + analysis; idle-by-default)
+gatekeeper  → /model opus,  /effort high    (commit gate; idle-by-default)
+agent       → /model sonnet, /effort medium
+# Legacy roles (still recognized):
+observer    → /model sonnet, /effort low
+intake      → /model opus,  /effort medium
+architect   → /model opus,  /effort max
+analyst     → /model opus,  /effort max
+verifier    → /model sonnet, /effort medium
+tracker     → /model sonnet, /effort medium
+critic      → (no default — orchestrator's discretion based on scope)
 ```
 
 5. **Render the table** — one row per chat:
