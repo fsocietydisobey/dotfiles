@@ -968,8 +968,47 @@ do_sequential_layout() {
     done
 }
 
+# --- pre-launch: enable the workspace's project-scoped .mcp.json servers ---
+# A project's .mcp.json servers (e.g. jeevy_portal's postgres / git / filesystem tools)
+# require explicit approval PER PROJECT. Non-interactive roster sessions never get that
+# prompt, so without this they boot blind to those tools and hand-roll psql / raw git.
+# We set enableAllProjectMcpServers=true in the roster's config dir BEFORE any session
+# boots, for two reasons a live-config edit can't achieve:
+#   (a) every relaunch re-applies it — a still-running session rewriting .claude.json from
+#       its STALE in-memory copy (booted before the edit) silently drops an external edit;
+#   (b) the freshly-launched sessions boot WITH the flag in their own in-memory copy, so
+#       they PRESERVE it on rewrite instead of clobbering it.
+# Idempotent; gated on the workspace actually shipping a .mcp.json. Config dir mirrors the
+# claude() bashrc rule (~/work → ~/.claude-jeevy, else ~/.claude). Atomic write (tmp+rename)
+# so a concurrent CC read never sees a torn file.
+_enable_project_mcp() {
+    [[ -f "$CWD/.mcp.json" ]] || return 0
+    local cfgdir cfg
+    if [[ "$CWD" == "$HOME/work"* ]]; then cfgdir="$HOME/.claude-jeevy"; else cfgdir="$HOME/.claude"; fi
+    cfg="$cfgdir/.claude.json"
+    [[ -f "$cfg" ]] || return 0
+    python3 - "$cfg" "$CWD" <<'PY' || echo "  ⚠ project-MCP enable skipped (config write failed; sessions fall back to hand-rolling)"
+import json, os, sys
+cfg, cwd = sys.argv[1], sys.argv[2]
+try:
+    d = json.load(open(cfg))
+except Exception:
+    sys.exit(1)
+proj = d.setdefault("projects", {}).setdefault(cwd, {})
+if proj.get("enableAllProjectMcpServers") is True:
+    print(f"  project-MCP: already enabled for {cwd}")
+    sys.exit(0)
+proj["enableAllProjectMcpServers"] = True
+tmp = cfg + ".roster.tmp"
+json.dump(d, open(tmp, "w"))
+os.replace(tmp, cfg)
+print(f"  project-MCP: enabled all .mcp.json servers for {cwd}")
+PY
+}
+
 # --- main ---
 echo "Launching $PROJECT roster ($MODE) — layout: $OPT_LAYOUT"
+_enable_project_mcp
 
 if [[ "$OPT_LAYOUT" == "hub" && -z "$OPT_ORDER" ]]; then
     do_hub_layout
