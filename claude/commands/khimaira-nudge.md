@@ -57,6 +57,11 @@ forces the turn).
    it shows an active spinner, an `esc to interrupt` line, a live token/elapsed counter,
    or an open permission dialog → it's **BUSY**, skip it (don't interrupt working agents).
    Idle windows (empty prompt) are the targets.
+   - ⚠️ **The `X% context used` substring in CC's footer is NOT a busy/idle signal** —
+     do not read it as either. It's CC's context meter (and can be stale post-compaction).
+     Busy = spinner / `esc to interrupt` / live counter / permission dialog ONLY; a high
+     `% context used` on an otherwise-quiet prompt does NOT mean busy, and a low one does
+     NOT mean idle. Ignore the meter; judge busy by the activity indicators above.
 
 5. **Nudge each target window BY ITS id** (the id paired with the title in step 2 — a
    FRESH id from this invocation's `kitty @ ls`, so the "stale id" hazard does not apply):
