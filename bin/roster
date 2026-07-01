@@ -47,7 +47,11 @@ set -euo pipefail
 # Lean roster (2026-06-28): consultant=architect∪analyst, gatekeeper=critic∪verifier;
 # master absorbs intake. Lean tiers signed off by Joseph. Legacy cases kept (additive)
 # so jp/janice + any --architect/--critic/etc. opt-in seats still resolve.
-role_model()  { case "$1" in master|architect|intake) echo "opus[1m]" ;; consultant) echo opus ;; *) echo sonnet ;; esac; }
+# consultant → sonnet[1m] (2026-07-01, Joseph): eval PASS — Sonnet-5 1M-max delivers Opus-grade
+# design work (griffin-0 firsthand production read: zero wrong conclusions shipped; 2 production-
+# validated wins). Frees the 2nd opus[1m] seat → master is now the only opus[1m] seat (cost lever).
+# architect (legacy opt-in) stays opus[1m]. Bare `sonnet` resolves to Sonnet 5 (alias flipped post-release).
+role_model()  { case "$1" in master|architect|intake) echo "opus[1m]" ;; consultant) echo "sonnet[1m]" ;; *) echo sonnet ;; esac; }
 role_effort() { case "$1" in architect|consultant) echo max ;; master|gatekeeper) echo high ;; observer) echo low ;; *) echo medium ;; esac; }
 role_tier()   { case "$1" in master) echo 1 ;; architect|analyst|verifier|consultant) echo 2 ;; gatekeeper|intake|backend-lead|data-lead|frontend-lead) echo 3 ;; agent) echo 4 ;; critic) echo 5 ;; observer) echo 6 ;; tracker) echo 7 ;; *) echo 4 ;; esac; }
 # Column assignment:
