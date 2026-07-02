@@ -51,7 +51,12 @@ set -euo pipefail
 # design work (griffin-0 firsthand production read: zero wrong conclusions shipped; 2 production-
 # validated wins). Frees the 2nd opus[1m] seat → master is now the only opus[1m] seat (cost lever).
 # architect (legacy opt-in) stays opus[1m]. Bare `sonnet` resolves to Sonnet 5 (alias flipped post-release).
-role_model()  { case "$1" in master|architect|intake) echo "opus[1m]" ;; consultant) echo "sonnet[1m]" ;; *) echo sonnet ;; esac; }
+# agent → sonnet[1m] (2026-07-01, Joseph): implementation agents accumulate context fast; on the
+# standard 200k window a heavy agent hits Claude Code's auto-compact every ~2-3 min (griffin-agent-1:
+# 44 compactions, 4 in <10 min — root cause was the 200k window, not a loop). 1M = ~5x fewer compactions
+# + the daemon handles it via distill-then-compact at real 85%. gatekeeper/legacy review roles stay bare
+# `sonnet` (200k) — they don't accumulate like an implementation seat, so they don't need the 1M limit-burn.
+role_model()  { case "$1" in master|architect|intake) echo "opus[1m]" ;; consultant|agent) echo "sonnet[1m]" ;; *) echo sonnet ;; esac; }
 role_effort() { case "$1" in architect|consultant) echo max ;; master|gatekeeper) echo high ;; observer) echo low ;; *) echo medium ;; esac; }
 role_tier()   { case "$1" in master) echo 1 ;; architect|analyst|verifier|consultant) echo 2 ;; gatekeeper|intake|backend-lead|data-lead|frontend-lead) echo 3 ;; agent) echo 4 ;; critic) echo 5 ;; observer) echo 6 ;; tracker) echo 7 ;; *) echo 4 ;; esac; }
 # Column assignment:
