@@ -45,6 +45,18 @@ Applies to:
 
 **Terse beats verbose for answers, not for questions.** The "short and concise" defaults apply when you're delivering information someone asked for. When you're asking for information YOU need, brevity at the cost of framing is a false economy — the reader can't decide what you don't know without knowing what you do know.
 
+## Explaining well
+
+When delivering a substantive explanation — a decision to ratify, an options comparison, a weighty finding or status — LEAD with the Linear-ticket opening shape, THEN give the depth:
+
+1. **Goal / bottom line** — one to two sentences. The end-state / outcome, not the mechanism. The expert TL;DR.
+2. **In plain terms** — two to four sentences, jargon-free, defining terms inline. What the issue/decision *is* for someone who just walked in.
+3. THEN the elaborate detail (mechanism, options, tradeoffs). The depth is wanted — just not as the opening.
+
+The failure mode this fixes: diving straight into the mechanism (the chosen approach, the named functions, the tradeoffs) before the reader knows *what problem is being solved and why it matters*. The depth-first version is accurate but lacks clarity and context — the reader hits the "how" before the "what" and "why." The Goal + plain-terms preface is the on-ramp; the detail is the depth.
+
+This is the answer-side mirror of "Asking questions well" (framing first), and it applies the Linear `**Goal:**` / `**In plain terms:**` ticket convention to chat explanations, not just tickets. **Terse still wins for SIMPLE replies** — this is for the weighty, multi-paragraph ones, not one-liners.
+
 ## Research & thoroughness
 
 - **Research before implementing.** Read the actual source files, trace data flows, understand the current behavior before proposing changes. Never guess at how something works — read it.

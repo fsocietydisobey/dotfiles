@@ -256,6 +256,25 @@ Reachable at `MNEMOSYNE_ORACLE_URL` (khimaira, default `:18000`) and
 `MNEMOSYNE_JEEVY_URL` (jeevy, default `:18001`). A miss is cheap: the tool fail-opens to
 an "unreachable" hint, so trying it first costs ~nothing.
 
+## Notebook — capture → structure → ask (code-grounded) → resolve
+
+**Use when** you want to consult or contribute to the structured, self-healing note store — a
+code-grounded knowledge base where notes are re-validated against the live code on access. On the
+khimaira MCP server (DEFERRED — `ToolSearch(query="select:mcp__khimaira__notebook_<name>")` to load).
+
+- `notebook_ask(question, project=…)` — the headline: a synthesized answer grounded in the notes
+  AND the live code, citing both (and flagging when the code disagrees with a note). Reach for this
+  to answer "what did I capture / decide about X, and is it still true vs the code?"
+- `notebook_search(query, project=…)` — semantic search over the notes → ranked note ids.
+- `notebook_get(note_id)` / `notebook_list(project=…, tab=…)` — read one / list.
+- `notebook_add_resolution(note_id, resolution)` — write the outcome of a worked note back; the
+  {problem → resolution} pair becomes oracle training data.
+- `notebook_update(note_id, …)` — edit a note.
+
+**Skip when** it's a pure code lookup with no captured-knowledge angle (use `seance_semantic_search`
+/ grep) — though `notebook_ask` already folds code-grounding in, so it's the richer choice whenever
+your own notes are relevant to the question.
+
 ## Decision tree — which tool first?
 
 ```

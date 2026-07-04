@@ -29,6 +29,8 @@ reader has the rest of the file right there if they want depth.
 
 ## engineering
 
+**ai-engineering** — The LLM is a bounded perception component, not the system. Cross the boundary once — unstructured → structured → code — and never let the model past it: it turns messy input into a validated schema; every load-bearing decision on that structured data is deterministic code. Resolve/match deterministic-first (exact → algorithmic fuzzy → LLM residual, human-gated). Propose, don't dispose.
+
 **api-design** — REST with plural-noun resources and proper HTTP verbs. URL-versioned (`/api/v1/`). Consistent `{data, meta}` envelope. Paginate everything (cursor for large/realtime, offset for small/stable). ISO 8601 UTC timestamps; UUIDs in public surface.
 
 **conventions** — Match existing patterns first. camelCase frontend (except React PascalCase, module CONSTANTS); PEP 8 + Black backend. Names must reflect what they do — no `data`, `result`, `temp`. Delete dead code the moment it's confirmed dead.
