@@ -29,6 +29,10 @@ dotfiles:
     - { src: claude/rules,     dest: ~/.claude/rules }
     - { src: claude/commands,  dest: ~/.claude/commands }
     - { src: claude/agents,    dest: ~/.claude/agents }
+    - { src: codex/AGENTS.md,               dest: ~/.codex/AGENTS.md }
+    - { src: codex/skills/khimaira-ask,     dest: ~/.codex/skills/khimaira-ask }
+    - { src: codex/skills/khimaira-tell,    dest: ~/.codex/skills/khimaira-tell }
+    - { src: codex/skills/khimaira-notes,   dest: ~/.codex/skills/khimaira-notes }
     # Add cursor symlinks here if/when you sync those too:
     # - { src: cursor/rules, dest: ~/.cursor/rules }
 
@@ -76,3 +80,9 @@ spa_build: true
 # fixed-path dotfiles copy would write wrong paths on machines whose
 # username or install location differs.
 install_claude_hooks: true
+
+# Declaratively merge khimaira's MCP servers and lifecycle hooks into Codex
+# (~/.codex/config.toml, ~/.codex/hooks.json). Same rationale as
+# install_claude_hooks above — command paths are machine-local, so this is
+# generated, not symlinked.
+install_codex_adapter: true
