@@ -64,6 +64,12 @@ mcp_servers:
     # seance_*/specter_*/scarlet_*/sibyl_* tools (re-registered at boot
     # via khimaira.server.sibling_tools — see Phase 0 unification).
     command: uv --directory ~/dev/khimaira run python -m khimaira.cli mcp 2>>/tmp/khimaira.log
+  - name: khimaira-chat
+    # Real-time cross-session chat — separate lightweight MCP server from
+    # khimaira's main tool surface. Registered on the primary machine but
+    # missing from this profile until 2026-07-16 (found via a fresh-machine
+    # demo: Claude Code on a synced laptop had khimaira but not khimaira-chat).
+    command: uv --directory ~/dev/khimaira run khimaira-chat 2>>/tmp/khimaira-chat.log
   - name: ai-orchestrator
     command: uv --directory ~/dev/ai-orchestrator run ai-orchestrator 2>>/tmp/orchestrator.log
   - name: linear
