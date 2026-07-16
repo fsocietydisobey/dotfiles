@@ -4,8 +4,11 @@
 
 For any bug consult framed as "fix THIS instance", the architect's FIRST output must
 be a bug-class enumeration: abstract the class, list ALL known code paths, mark each
-BROKEN/SAFE/UNKNOWN. Then design fixes that close the CLASS, not the instance. Master
-requests enumeration first; reviews verify class coverage, not just the diff.
+BROKEN/SAFE/UNKNOWN. "Close the class" means install the CHOKEPOINT — one mandatory path
++ a bypass-gate that makes the bug unrepresentable — NOT patch every known path (that's an
+"arm"; the class reopens on the next path). Root-fix test: "can new code still create this
+bug?" Yes → arm, physically-no → chokepoint. Master requests enumeration first; reviews
+verify class coverage, not just the diff.
 
 ## Why this exists
 
@@ -43,6 +46,63 @@ Test verification of CLASS (not path):
 
 ONLY after master confirms the enumeration + coverage decision should the architect
 design the fix spec.
+
+## The class fix IS the chokepoint — "close the class" ≠ "patch every path"
+
+The template's "Coverage decision" hides a trap: **"fix all BROKEN paths" reads as a class
+fix but is only arm-completeness** — you've patched the paths visible NOW. The next
+unforeseen path reopens the class. That is not the root fix; it is a wider arm.
+
+**Arm vs chokepoint (they sound identical, they are not):**
+- **Arm** — fix the cause of the paths visible now ("the delete path doesn't do X, so make
+  it do X"). Every new event-type that touches the invariant needs its own arm. Class stays
+  open to path N+1.
+- **Chokepoint** — collapse the whole class to ONE mandatory path + a bypass-gate, so the
+  bug is **unrepresentable by construction.** New code physically cannot create it (or a CI
+  gate rejects the second path).
+
+**The test — apply to the fix SPEC, at design time, before calling anything a root fix:**
+> After this ships, can NEW code still create this bug?
+> · YES → it's an arm (however wide); the class is still open.
+> · Physically NO (single mandatory path + bypass-gate) → it's the chokepoint; class closed.
+
+This mechanically catches "root-cause-of-this-instance dressed as a class fix" — the most
+common way a consult produces an arm while everyone believes the class is closed.
+
+**Name why we default to arms, so you resist it:** arms are cheaper — faster to design,
+easier to verify, ship same-day, and each passes review in isolation because it looks
+complete. The chokepoint is a bigger design lift. Absent a forcing function the roster takes
+the tractable path every time — and the recurrence of near-identical bugs IS the forcing
+function, arriving too late. Don't wait for it.
+
+**Epistemics caveat (arm #1 is forgivable; arm #3 is not):** you usually can't see the
+chokepoint from instance #1 — the class only becomes visible after 2–3 instances reveal its
+shape. So one arm-then-recognize cycle is unavoidable. The discipline is to recognize the
+class by instance #2 and install the chokepoint THEN, not keep adding arms #3/#4/#5. When
+you catch yourself writing the second near-identical fix, STOP and ask: "what one path
+should all of these have gone through?"
+
+**Bypass-gate = the durability half.** A chokepoint without a gate blocking NEW bypass paths
+rots — someone adds path #2 months later and the class silently reopens. The gate (a
+lint/CI check that fails on any operation outside the chokepoint) makes closure permanent;
+it's cheaper than the chokepoint and does most of the work. Never ship a chokepoint without
+one.
+
+**Retrofit reality (don't over-read this):** you do NOT chokepoint a whole existing codebase
+— that's a rewrite trading battle-tested edge-case handling for theoretical cleanliness.
+Apply the treatment ONLY to a class that has bitten ≥2× AND is foundational. Strangler-style:
+install the chokepoint for new code + the gate, migrate old paths opportunistically, leave
+stable ones. The gate stops the bleeding without the rewrite.
+
+**Worked example — the recurring-arm run:** a node-lifecycle bug class produced three
+consecutive "class fixes" (retire-on-delete, retire-on-vacate, activate-on-reoccupy) — each
+a legitimate-looking root-cause fix, each an ARM, each followed by a near-identical sibling.
+The recurrence was the signature of the missing chokepoint. The true root fix: collapse ALL
+lifecycle maintenance to one derived predicate ("node active iff a live source row resolves
+to its key") behind one reconciliation path, so no event-type can set lifecycle wrong.
+Contrast a sibling class fixed the chokepoint way in the same period (collapse N procedural
+fact-emitters to one declarative registry): zero same-shape sequels. **Arms recur;
+chokepoints don't** — and the recurrence itself is the diagnostic.
 
 ## Worked example — Specter silent-tab-mutation
 

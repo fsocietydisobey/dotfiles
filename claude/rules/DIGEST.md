@@ -18,12 +18,15 @@ in the 2026-05-25/2026-05-26 session.
 
 **bug-class-enumeration** — For any bug consult framed as "fix THIS instance", the architect's FIRST output must
 be a bug-class enumeration: abstract the class, list ALL known code paths, mark each
-BROKEN/SAFE/UNKNOWN. Then design fixes that close the CLASS, not the instance. Master
-requests enumeration first; reviews verify class coverage, not just the diff.
+BROKEN/SAFE/UNKNOWN. "Close the class" means install the CHOKEPOINT — one mandatory path
++ a bypass-gate that makes the bug unrepresentable — NOT patch every known path (that's an
+"arm"; the class reopens on the next path). Root-fix test: "can new code still create this
+bug?" Yes → arm, physically-no → chokepoint. Master requests enumeration first; reviews
+verify class coverage, not just the diff.
 
 **khimaira-tools** — For conceptual codebase queries, try `seance_semantic_search` BEFORE grep. For a fast narrative "what does X do / how does Y work / what's the vocabulary" orientation on the **khimaira or jeevy** codebases, ask the local oracle `mnemosyne_ask(question, project="khimaira"|"jeevy")` FIRST (zero API cost, ~2s) — then verify against live source (it's fallible). For ANY UI change (verify it rendered) or browser-visible bug (debug it), use `specter_debug_snapshot` — Specter is a verify tool, not just a debug tool; `tsc passing` ≠ "the user sees what I think they see." For "map this feature / what does it export" questions, call `scarlet_scan_features` or `scarlet_extract_feature_metadata`. For meeting recording / transcription, the `sibyl_*` tools. Reflexive grep loses information these tools have already indexed.
 
-**workflow** — Format every file you modify (Prettier/Black) — never bypass pre-commit hooks. Workflow: research → fact-check docs → plan with detail → implement → verify. Keep `~/.claude/rules/` and `~/.cursor/rules/` in sync.
+**workflow** — Format every file you modify (Prettier/Black) — never bypass pre-commit hooks. Workflow: research → fact-check docs → plan with detail → implement → verify. Keep `~/.claude/rules/`, `~/.cursor/rules/`, and `~/.codex/AGENTS.md` in sync.
 One to three sentences. Lead with the rule itself, no preamble. The
 reader has the rest of the file right there if they want depth.
 
