@@ -2,15 +2,16 @@
 
 ## TL;DR
 
-Format every file you modify (Prettier/Black) — never bypass pre-commit hooks. Workflow: research → fact-check docs → plan with detail → implement → verify. Keep `~/.claude/rules/` and `~/.cursor/rules/` in sync.
+Format every file you modify (Prettier/Black) — never bypass pre-commit hooks. Workflow: research → fact-check docs → plan with detail → implement → verify. Keep `~/.claude/rules/`, `~/.cursor/rules/`, and `~/.codex/AGENTS.md` in sync.
 
 ## Rule file sync (CRITICAL)
 
-**`~/.claude/rules/` and `~/.cursor/rules/` must always be in sync.** These are the same personal rules for different AI tools. When you add, change, or remove a rule in one location, immediately update the other to match.
+**`~/.claude/rules/`, `~/.cursor/rules/`, and `~/.codex/AGENTS.md` must always be in sync.** These are the same personal rules for three different AI tools. When you add, change, or remove a rule in one location, immediately update the other two to match.
 
 The content is semantically identical — only the format differs:
-- Claude: plain `.md` files
-- Cursor: `.mdc` files with YAML frontmatter (`description`, `alwaysApply: true`)
+- Claude: plain `.md` files under `~/dotfiles/claude/rules/{personal,engineering}/` (symlinked to `~/.claude/rules/`)
+- Cursor: `.mdc` files with YAML frontmatter (`description`, `globs`) directly under `~/.cursor/rules/` — **engineering rules only**, not personal (Cursor is for team-shared code standards; the personal/ working-style rules deliberately don't sync there)
+- Codex: a single `~/dotfiles/codex/AGENTS.md`, symlinked from `~/.codex/AGENTS.md` — carries BOTH personal and engineering (Codex is personal-use like Claude Code, not team-shared like Cursor). Codex has no per-file rules directory and no `@file`-import mechanism (confirmed against Codex's own dogfooded `AGENTS.md`, which is flat markdown with no import syntax), so this file inlines the same content as `DIGEST.md` (the TL;DRs) plus pointers to the full rule files. **`DIGEST.md` regenerates automatically via the pre-commit hook; `codex/AGENTS.md` does NOT** — when a rule's TL;DR changes, manually re-sync the corresponding paragraph in `codex/AGENTS.md` in the same change, or it silently drifts out of date. Codex slash-command equivalents (`ask`/`tell`/`notes`, ported from `~/.claude/commands/*.md`) live as native Codex skills under `~/dotfiles/codex/skills/khimaira-*/SKILL.md`, symlinked into `~/.codex/skills/`.
 
 ## Rule file format (REQUIRED)
 
