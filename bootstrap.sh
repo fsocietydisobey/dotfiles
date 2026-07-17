@@ -85,7 +85,8 @@ if [ -n "${BASH_SOURCE[0]:-}" ] && \
    [ -f "$(dirname "${BASH_SOURCE[0]}")/khimaira-profile.yaml" ]
 then
     DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    note "running from existing dotfiles checkout: $DOTFILES_DIR"
+    note "running from existing dotfiles checkout: $DOTFILES_DIR — pulling latest"
+    git -C "$DOTFILES_DIR" pull --ff-only
 else
     DOTFILES_DIR="$DOTFILES_DEFAULT"
     if [ ! -d "$DOTFILES_DIR/.git" ]; then
@@ -107,6 +108,9 @@ if [ ! -d "$KHIMAIRA_DEV_PATH/.git" ]; then
     note "cloning khimaira → $KHIMAIRA_DEV_PATH"
     mkdir -p "$(dirname "$KHIMAIRA_DEV_PATH")"
     git clone "$KHIMAIRA_REPO" "$KHIMAIRA_DEV_PATH"
+else
+    note "khimaira already cloned at $KHIMAIRA_DEV_PATH — pulling latest"
+    git -C "$KHIMAIRA_DEV_PATH" pull --ff-only
 fi
 
 # --all-packages is load-bearing on uv workspaces: a bare `uv sync` only
