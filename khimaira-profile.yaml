@@ -33,6 +33,13 @@ dotfiles:
     - { src: codex/skills/khimaira-ask,     dest: ~/.codex/skills/khimaira-ask }
     - { src: codex/skills/khimaira-tell,    dest: ~/.codex/skills/khimaira-tell }
     - { src: codex/skills/khimaira-notes,   dest: ~/.codex/skills/khimaira-notes }
+    # bin/roster launches the multi-window external roster (claude-chat +
+    # kitty). Was a manual, machine-local symlink on the dev box only — never
+    # captured here, so a fresh `khimaira bootstrap` (e.g. the backup laptop)
+    # never got it and `roster` was missing from PATH. ~/bin is already on
+    # PATH via .bashrc; apply_symlink creates it if absent.
+    - { src: bin/roster,             dest: ~/bin/roster }
+    - { src: bin/specter-test-chrome, dest: ~/bin/specter-test-chrome }
     # Add cursor symlinks here if/when you sync those too:
     # - { src: cursor/rules, dest: ~/.cursor/rules }
 
