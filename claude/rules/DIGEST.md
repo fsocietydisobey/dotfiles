@@ -24,7 +24,13 @@ BROKEN/SAFE/UNKNOWN. "Close the class" means install the CHOKEPOINT — one mand
 bug?" Yes → arm, physically-no → chokepoint. Master requests enumeration first; reviews
 verify class coverage, not just the diff.
 
-**khimaira-tools** — For conceptual codebase queries, try `seance_semantic_search` BEFORE grep. For a fast narrative "what does X do / how does Y work / what's the vocabulary" orientation on the **khimaira or jeevy** codebases, ask the local oracle `mnemosyne_ask(question, project="khimaira"|"jeevy")` FIRST (zero API cost, ~2s) — then verify against live source (it's fallible). For ANY UI change (verify it rendered) or browser-visible bug (debug it), use `specter_debug_snapshot` — Specter is a verify tool, not just a debug tool; `tsc passing` ≠ "the user sees what I think they see." For "map this feature / what does it export" questions, call `scarlet_scan_features` or `scarlet_extract_feature_metadata`. For meeting recording / transcription, the `sibyl_*` tools. Reflexive grep loses information these tools have already indexed.
+**khimaira-tools** — For conceptual codebase queries, try `seance_semantic_search` BEFORE grep; for a code-grounded narrative "what does X do / how does Y work" answer, `notebook_ask` (it cites the live code and flags stale notes). For ANY UI change (verify it rendered) or browser-visible bug (debug it), use `specter_debug_snapshot` — Specter is a verify tool, not just a debug tool; `tsc passing` ≠ "the user sees what I think they see." For "map this feature / what does it export" questions, call `scarlet_scan_features` or `scarlet_extract_feature_metadata`. For meeting recording / transcription, the `sibyl_*` tools. Reflexive grep loses information these tools have already indexed.
+
+**orchestration** — Default to decomposing and orchestrating substantive, parallelizable work via
+subagents from the first turn — don't wait to be told to "parallelize" or
+"spawn agents." Fan out independent slices concurrently, serialize shared-file
+work, keep the adversarial-verify layer. Subagents propose/implement; you
+keep every load-bearing decision.
 
 **workflow** — Format every file you modify (Prettier/Black) — never bypass pre-commit hooks. Workflow: research → fact-check docs → plan with detail → implement → verify. Keep `~/.claude/rules/`, `~/.cursor/rules/`, and `~/.codex/AGENTS.md` in sync.
 One to three sentences. Lead with the rule itself, no preamble. The

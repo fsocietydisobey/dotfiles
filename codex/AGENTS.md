@@ -35,11 +35,19 @@ by construction) beats an arm (patches the paths visible now). Full:
 pre-commit hooks. Workflow: research → fact-check docs → plan with detail →
 implement → verify. Full: `~/dotfiles/claude/rules/personal/workflow.md`
 
+**orchestration** — Default to decomposing and orchestrating substantive,
+parallelizable work via subagents from the first turn — don't wait to be told
+to "parallelize" or "spawn agents." Fan out independent slices concurrently,
+serialize shared-file work, keep the adversarial-verify layer. Subagents
+propose/implement; you keep every load-bearing decision. Full:
+`~/dotfiles/claude/rules/personal/orchestration.md`
+
 **khimaira-tools** — For conceptual codebase queries on khimaira/jeevy, try
-`seance_semantic_search` before grep, `mnemosyne_ask` for fast narrative
-orientation. For any UI change, verify it rendered (Specter-equivalent —
-Codex has no browser-CDP tool yet; screenshot/manual check instead). Full:
-`~/dotfiles/claude/rules/personal/khimaira-tools.md`
+`seance_semantic_search` before grep, and `notebook_ask` for a code-grounded
+narrative answer (the mnemosyne oracle was retired 2026-07-24 — it went stale
+faster than it could re-bake). For any UI change, verify it rendered (Specter-
+equivalent — Codex has no browser-CDP tool yet; screenshot/manual check
+instead). Full: `~/dotfiles/claude/rules/personal/khimaira-tools.md`
 
 ### Engineering
 
