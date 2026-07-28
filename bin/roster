@@ -56,7 +56,7 @@ set -euo pipefail
 # 44 compactions, 4 in <10 min — root cause was the 200k window, not a loop). 1M = ~5x fewer compactions
 # + the daemon handles it via distill-then-compact at real 85%. gatekeeper/legacy review roles stay bare
 # `sonnet` (200k) — they don't accumulate like an implementation seat, so they don't need the 1M limit-burn.
-role_model()  { case "$1" in master|architect|intake) echo "opus[1m]" ;; consultant|agent) echo "sonnet[1m]" ;; *) echo sonnet ;; esac; }
+role_model()  { case "$1" in master|architect|intake) echo "opus[1m]" ;; consultant|agent|gatekeeper|critic|verifier|analyst) echo "sonnet[1m]" ;; *) echo sonnet ;; esac; }
 role_effort() { case "$1" in architect|consultant) echo max ;; master|gatekeeper) echo high ;; observer) echo low ;; *) echo medium ;; esac; }
 role_tier()   { case "$1" in master) echo 1 ;; architect|analyst|verifier|consultant) echo 2 ;; gatekeeper|intake|backend-lead|data-lead|frontend-lead) echo 3 ;; agent) echo 4 ;; critic) echo 5 ;; observer) echo 6 ;; tracker) echo 7 ;; *) echo 4 ;; esac; }
 # Column assignment:
@@ -76,22 +76,34 @@ infer_role() {
     echo "${stripped%-*}"
 }
 
-# --- auto-roster-naming pool + picker (C1b) ---
-# Curated creature/mythological codenames (livyatan/muther vibe). The pool is
-# self-NON-NESTING by construction: no member is a substring of another — that is the
-# substring-safety guarantee (prevents the agent-1↔muther-agent-1 reaper-cascade class).
-# If you add a word, keep it non-nesting vs every existing member.
-_CODENAME_POOL=(chimera griffin kraken phoenix wyvern basilisk cerberus sphinx
-                manticore kelpie wendigo golem thunderbird minotaur nessie)
-
+# --- auto-roster-naming picker (C1b) ---
+# Generated roster prefixes: 'r' + 4 hex — IDENTICAL to `khimaira roster start`'s
+# `_gen_prefix()` (packages/khimaira/src/khimaira/cli/roster.py), same
+# `secrets.token_hex(2)`, so both launchers now produce ONE convention:
+# r6471-master, r6471-agent-1, r6471-consultant.
+#
+# This replaced a curated creature-codename pool (chimera, griffin, kraken, …). That
+# pool's load-bearing property was being self-NON-NESTING by construction — no member a
+# substring of another — which is what prevents the agent-1↔muther-agent-1
+# reaper-cascade class. Generated prefixes hold that property MORE strongly and for
+# free: every prefix is exactly 5 chars, so none can nest inside another BY
+# CONSTRUCTION, rather than by whoever adds a word remembering the rule. The space also
+# can't exhaust — 65536 values vs 15 codenames, where exhaustion was a hard failure the
+# caller had to handle.
+#
+# Historical names in code comments, tickets and memories (griffin-agent-1, chimera-0,
+# livyatan) stay as-is: they are incident provenance, and rewriting them would break
+# traceability to the bugs they document.
 _pick_codename() {
     # Active roster prefixes from LIVE kitty window titles (every roster session is a
     # kitty window, so titles capture all in-use names — the source wake/reap key on).
     # A candidate is rejected if it is a SUBSTRING or SUPERSTRING of any active title
     # token — structural collision safety, not just exact-match (this is what prevents
-    # the agent-1↔muther-agent-1 reaper-cascade class). The roster script runs inside
-    # kitty, so a bare `kitty @ ls` has control access (no --to needed).
-    local active cand a nested
+    # the agent-1↔muther-agent-1 reaper-cascade class). Kept even though same-length
+    # prefixes cannot nest in each OTHER: a roster launched before this change may still
+    # be live under a codename, and a generated prefix must not nest in one of those.
+    # The roster script runs inside kitty, so a bare `kitty @ ls` has control access.
+    local active cand a nested attempt
     active=$(kitty @ ls 2>/dev/null | python3 -c "
 import json,sys
 try:
@@ -99,7 +111,13 @@ try:
     print('\n'.join((w.get('title') or '') for o in d for t in o.get('tabs',[]) for w in t.get('windows',[])))
 except Exception:
     pass" 2>/dev/null)
-    for cand in "${_CODENAME_POOL[@]}"; do
+    # Bounded retry rather than an ordered pool walk: candidates are random, so a
+    # collision is re-rolled. 64 attempts against a 65536-space makes exhaustion a
+    # practical impossibility, but the loop is still bounded so a pathological
+    # environment fails loud instead of spinning.
+    for attempt in $(seq 1 64); do
+        cand=$(python3 -c "import secrets;print('r'+secrets.token_hex(2))" 2>/dev/null) || return 1
+        [[ -z "$cand" ]] && return 1
         nested=false
         while IFS= read -r a; do
             a="${a//[^A-Za-z0-9_-]/}"        # strip kitty decoration glyphs (✳/space)
@@ -108,7 +126,7 @@ except Exception:
         done <<< "$active"
         [[ "$nested" == false ]] && { echo "$cand"; return 0; }
     done
-    return 1  # pool exhausted — caller fails loud
+    return 1  # 64 collisions in a row — caller fails loud
 }
 
 # --- parse args ---
@@ -178,12 +196,13 @@ else
 fi
 
 # --- auto-roster-naming (C1b): bare `roster start` with no explicit project/prefix/master
-# → pick an unused, collision-safe creature codename as the roster prefix. `roster <name>`
-# (or --prefix/--master) overrides. Launcher-side, live immediately. ---
+# → generate an unused, collision-safe `rNNNN` prefix (same convention as
+# `khimaira roster start`). `roster <name>` (or --prefix/--master) overrides.
+# Launcher-side, live immediately. ---
 if [[ "$MODE" == "start" && "$PROJECT_EXPLICIT" == false \
       && -z "$OPT_PREFIX" && -z "$OPT_MASTER" ]]; then
     _codename=$(_pick_codename) || {
-        echo "roster: no collision-safe codename free in the pool — pass an explicit name (\`roster <name> start\`)." >&2
+        echo "roster: could not generate a collision-safe prefix — pass an explicit name (\`roster <name> start\`)." >&2
         exit 1
     }
     PROJECT="$_codename"; PROJECT_EXPLICIT=true
