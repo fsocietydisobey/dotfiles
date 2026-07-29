@@ -2,7 +2,7 @@
 
 ## TL;DR
 
-For conceptual codebase queries, try `seance_semantic_search` BEFORE grep. For a fast narrative "what does X do / how does Y work / what's the vocabulary" orientation on the **khimaira or jeevy** codebases, ask the local oracle `mnemosyne_ask(question, project="khimaira"|"jeevy")` FIRST (zero API cost, ~2s) — then verify against live source (it's fallible). For ANY UI change (verify it rendered) or browser-visible bug (debug it), use `specter_debug_snapshot` — Specter is a verify tool, not just a debug tool; `tsc passing` ≠ "the user sees what I think they see." For "map this feature / what does it export" questions, call `scarlet_scan_features` or `scarlet_extract_feature_metadata`. For meeting recording / transcription, the `sibyl_*` tools. Reflexive grep loses information these tools have already indexed.
+For conceptual codebase queries, try `seance_semantic_search` BEFORE grep; for a code-grounded narrative "what does X do / how does Y work" answer, `notebook_ask` (it cites the live code and flags stale notes). For ANY UI change (verify it rendered) or browser-visible bug (debug it), use `specter_debug_snapshot` — Specter is a verify tool, not just a debug tool; `tsc passing` ≠ "the user sees what I think they see." For "map this feature / what does it export" questions, call `scarlet_scan_features` or `scarlet_extract_feature_metadata`. For meeting recording / transcription, the `sibyl_*` tools. Reflexive grep loses information these tools have already indexed.
 
 ## Why this rule exists
 
@@ -223,38 +223,16 @@ Every `scarlet_*` tool. Scarlet expects a `features/` folder convention (most Re
 | `scarlet_lint_claude_md` | Check a feature's CLAUDE.md for staleness (Public API drift, missing sections, dead file refs). |
 | `scarlet_generate_barrel` | Write `index.{js,ts,tsx}` re-exporting a feature's public surface. Set `write=False` for a dry run. |
 
-## Mnemosyne — local codebase oracle (`mnemosyne_ask`)
+## Mnemosyne — RETIRED (2026-07-24)
 
-**Use when** you need a FAST narrative orientation on the **khimaira** or **jeevy**
-codebase — "what does module X do", "where does the logic for Y live", "how does Z
-work", "what's the vocabulary around W" — and you'd otherwise cold-read 5-10 files to
-build that picture. The oracle is a local fine-tuned model (Qwen2.5-Coder-7B, CPT'd on
-the codebase + SFT'd on team knowledge), served on the Spark via vLLM. Zero API cost,
-private, ~2s per call. One oracle PER codebase — pass `project`:
-
-- `mnemosyne_ask(question, project="khimaira")` — the khimaira platform/monorepo (default)
-- `mnemosyne_ask(question, project="jeevy")` — the jeevy_portal codebase
-
-Each oracle knows ONLY its own codebase. Ask the jeevy oracle jeevy questions, the
-khimaira oracle khimaira questions.
-
-**Oracle vs Séance** — they're complementary, not competitors:
-- **Oracle** answers *what/how* in prose — a narrative orientation you can read in one
-  call. Best as the FIRST touch on an unfamiliar area: "explain how X works."
-- **Séance** answers *where* — returns the actual ranked code chunks/files. Best right
-  after the oracle, to locate the real code the oracle described.
-- Typical flow: `mnemosyne_ask` to orient → `seance_semantic_search` / `Read` to find +
-  read the real source → act.
-
-**Skip when** the question is about any OTHER codebase (no oracle exists for it), when
-you need an exact symbol/string (grep), or when correctness is critical and you haven't
-yet read the real file — the oracle is FALLIBLE (confidently wrong on recent changes and
-cross-codebase/infra facts). ALWAYS verify a fact against live source before acting;
-never commit code on its answer alone. You are the fact-checker; it's the librarian.
-
-Reachable at `MNEMOSYNE_ORACLE_URL` (khimaira, default `:18000`) and
-`MNEMOSYNE_JEEVY_URL` (jeevy, default `:18001`). A miss is cheap: the tool fail-opens to
-an "unreachable" hint, so trying it first costs ~nothing.
+The local fine-tuned codebase oracle (`mnemosyne_ask`, the Spark vLLM models + the
+distiller re-bake loop) was retired 2026-07-24. Reason: a baked model goes stale in days
+against a fast-changing codebase — confidently wrong on recent changes faster than it can
+be re-baked — while query-time-retrieval tools read the CURRENT code and never go stale.
+For "how does X work / where's Y / what's the vocabulary" orientation, use those instead:
+`seance_semantic_search` (finds the real code), `notebook_ask` (code-grounded prose that
+flags when a note disagrees with the live code), and the `khimaira-orientation` skill
+(curated, always-current map). Don't call `mnemosyne_ask` — it no longer exists.
 
 ## Notebook — capture → structure → ask (code-grounded) → resolve
 
@@ -268,7 +246,7 @@ khimaira MCP server (DEFERRED — `ToolSearch(query="select:mcp__khimaira__noteb
 - `notebook_search(query, project=…)` — semantic search over the notes → ranked note ids.
 - `notebook_get(note_id)` / `notebook_list(project=…, tab=…)` — read one / list.
 - `notebook_add_resolution(note_id, resolution)` — write the outcome of a worked note back; the
-  {problem → resolution} pair becomes oracle training data.
+  {problem → resolution} pair is captured with the note.
 - `notebook_update(note_id, …)` — edit a note.
 
 **Skip when** it's a pure code lookup with no captured-knowledge angle (use `seance_semantic_search`
@@ -281,10 +259,9 @@ your own notes are relevant to the question.
 Question shape:
 ├── Exact symbol / known string / single regex
 │   └── Grep (or Serena's find_symbol if available)
-├── "How does X work / what's the vocabulary" on khimaira or jeevy → ORIENT fast
-│   └── mnemosyne_ask(project=...) FIRST (prose orientation, ~2s, free)
-│       then seance_semantic_search / Read to locate + VERIFY the real code
-├── Conceptual codebase question on any OTHER (non-oracle) codebase
+├── "How does X work / what's the vocabulary" → ORIENT fast
+│   └── notebook_ask (code-grounded prose) or seance_semantic_search, then Read to verify
+├── Conceptual codebase question (any codebase)
 │   └── seance_semantic_search (after confirming index exists)
 ├── Just shipped a UI change → VERIFY it rendered
 │   └── specter_debug_snapshot (post-rebuild)
