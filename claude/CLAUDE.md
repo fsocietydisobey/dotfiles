@@ -46,23 +46,17 @@ Check `mcp__khimaira__session_pending_notes(session_id)` for unread answers from
 
 **Skip when:** nothing was decided, nothing is open, nothing changed status. Empty logs are fine; noise logs are worse than no logs.
 
-## Personal rules
+## The rules themselves
 
-| Rule file | Scope |
-|---|---|
-| `rules/personal/approach.md` | Working style, research-first, challenge bad ideas |
-| `rules/personal/workflow.md` | Rule sync, formatting, research workflow |
+Every file in `rules/personal/` and `rules/engineering/` is auto-loaded, so their
+full text is already in context — there is nothing here to look up. For the
+one-line-per-rule version read `rules/DIGEST.md`, regenerated from their TL;DRs
+by the pre-commit hook whenever a rule changes.
 
-## Engineering rules
-
-| Rule file | Scope |
-|---|---|
-| `rules/engineering/conventions.md` | Naming, code style, folder structure |
-| `rules/engineering/error-handling.md` | Error patterns, error envelope format |
-| `rules/engineering/testing.md` | Coverage, determinism, what to test |
-| `rules/engineering/security.md` | Secrets, input validation, OWASP |
-| `rules/engineering/database.md` | Migrations, queries, naming, indexing |
-| `rules/engineering/performance.md` | Frontend, backend, API, database |
-| `rules/engineering/api-design.md` | REST conventions, versioning, pagination |
-| `rules/engineering/dependencies.md` | Evaluation, pinning, auditing |
-| `rules/engineering/debugging.md` | Process, anti-patterns, tools |
+This section used to be two hand-maintained tables naming each file and its
+scope. Removed 2026-07-29: they had drifted to listing 11 of 16 rules, silently
+omitting `bug-class-enumeration`, `orchestration`, `khimaira-tools`,
+`behavioral-rule-promotion` and `ai-engineering` — several of the most
+load-bearing in the set. A stale index is worse than none: it reads as
+authoritative and quietly says a rule does not exist. `ls rules/*/` and
+DIGEST.md cannot drift that way.
