@@ -43,6 +43,66 @@
 
 set -euo pipefail
 
+# --- daemon pinning ---
+# Every seat gets an EXPLICIT daemon target. Do not let a seat inherit one.
+#
+# A seat's two halves resolve their daemon independently: the khimaira-chat +
+# khimaira MCP clients read KHIMAIRA_MONITOR_URL, the hooks read
+# KHIMAIRA_ENDPOINT, Themis reads THEMIS_DAEMON. All three gap-fill from
+# ~/.config/khimaira/client.env when unset.
+#
+# Until 2026-07-29 the MCP clients did NOT read client.env, so a seat launched
+# here silently fell back to loopback and every roster was local by ACCIDENT.
+# When the clients were fixed to honour client.env (khimaira 802de46), that
+# accident inverted: a seat launched here would bind to whatever client.env
+# names — the Spark — while the roster it belongs to, its chat rooms, its
+# session history and this machine's KG adapters all still live on the local
+# daemon. Relaunching an existing local roster would have silently moved it off
+# its own store.
+#
+# So pin it. Defaulting to LOCAL preserves what every existing roster (kraken,
+# griffin, chimera) has always actually run against; the point is that it is now
+# a stated target rather than a leftover. Override per-launch:
+#
+#   KHIMAIRA_ROSTER_DAEMON=spark       roster ...   # the shared team daemon
+#   KHIMAIRA_ROSTER_DAEMON=http://host:8740 roster ...
+#
+# This is the same class as `khimaira launch --local`, which had the identical
+# bug for the same reason: it worked by ABSENCE (stripping the Spark vars and
+# trusting a loopback default) instead of by naming a target.
+_SPARK_DAEMON_URL="http://100.76.95.68:8740"
+_LOCAL_DAEMON_URL="http://127.0.0.1:8740"
+
+_roster_daemon_url() {
+    case "${KHIMAIRA_ROSTER_DAEMON:-local}" in
+        local|localhost|"") echo "$_LOCAL_DAEMON_URL" ;;
+        spark)              echo "$_SPARK_DAEMON_URL" ;;
+        http*)              echo "${KHIMAIRA_ROSTER_DAEMON%/}" ;;
+        *) echo "roster: unknown KHIMAIRA_ROSTER_DAEMON='${KHIMAIRA_ROSTER_DAEMON}' (want local|spark|http://...)" >&2
+           exit 2 ;;
+    esac
+}
+
+# Passed to every `kitty @ launch` so the seat's env carries the target
+# EXPLICITLY. An explicitly-set var beats the client.env gap-fill, which is what
+# makes this authoritative rather than advisory.
+_daemon_env_args() {
+    # `exit 2` inside _roster_daemon_url only kills the command-substitution
+    # SUBSHELL, not this script — so an unrecognised value would leave url empty
+    # and we would pin KHIMAIRA_ENDPOINT= to nothing. That is strictly worse than
+    # the inherited-endpoint bug this function exists to fix: a seat with a blank
+    # endpoint fails in a way nobody can read. Check the status and die here.
+    local url
+    if ! url="$(_roster_daemon_url)" || [[ -z "$url" ]]; then
+        echo "roster: could not resolve a daemon target — refusing to launch seats with an unset endpoint" >&2
+        exit 2
+    fi
+    printf '%s\n' \
+        --env "KHIMAIRA_ENDPOINT=$url" \
+        --env "KHIMAIRA_MONITOR_URL=$url" \
+        --env "THEMIS_DAEMON=$url"
+}
+
 # --- role lookups ---
 # Lean roster (2026-06-28): consultant=architect∪analyst, gatekeeper=critic∪verifier;
 # master absorbs intake. Lean tiers signed off by Joseph. Legacy cases kept (additive)
@@ -543,12 +603,14 @@ do_launch() {
     if [[ -n "${KHIMAIRA_PROXY_URL:-}" ]]; then
         proxy_env+=(--env "ANTHROPIC_BASE_URL=$KHIMAIRA_PROXY_URL")
     fi
+    local daemon_env=(); mapfile -t daemon_env < <(_daemon_env_args)
     wid=$(kitty @ "${KITTY_TO[@]}" launch \
         --type=window \
         --title="$name" \
         --cwd="$CWD" \
         --env "KHIMAIRA_ROSTER_SLOT=$slot" \
         --env "KHIMAIRA_ROSTER_MASTER=$MASTER" \
+        "${daemon_env[@]}" \
         ${proxy_env[@]+"${proxy_env[@]}"} \
         "$@" \
         -- bash -ic "cd '$CWD' && claude-chat $flag $name --model $model --effort $effort \"$(_init_prompt_for "$name")\"; exec bash")
@@ -781,12 +843,14 @@ do_hub_layout() {
         _anchor_proxy_env+=(--env "ANTHROPIC_BASE_URL=$KHIMAIRA_PROXY_URL")
     fi
     local _anchor_slot="$ROSTER_INSTANCE_ID:$_name"
+    local _anchor_daemon_env=(); mapfile -t _anchor_daemon_env < <(_daemon_env_args)
     id_la=$(kitty @ "${KITTY_TO[@]}" launch \
         --type=tab \
         --tab-title="${PROJECT}-roster" \
         --title="$_name" \
         --cwd="$CWD" \
         --env "KHIMAIRA_ROSTER_SLOT=$_anchor_slot" \
+        "${_anchor_daemon_env[@]}" \
         ${_anchor_proxy_env[@]+"${_anchor_proxy_env[@]}"} \
         -- bash -ic "cd '$CWD' && claude-chat $_sflag $_name --model $_model --effort $_effort \"$(_init_prompt_for "$_name")\"; exec bash")
     # TRAP-2 token + auto-confirm dev-channels prompt + stagger (anchor bypasses do_launch).
