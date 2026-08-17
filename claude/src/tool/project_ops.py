@@ -5,14 +5,15 @@ Layering (higher overwrites lower):
   2. projects/overrides/<project_name>/.claude/
 
 Files NEVER touched in target:
+  - .claude/settings.json (owned by the active Khimaira installer)
   - .claude/settings.local.json (per-machine)
-  - .claude/scratch/ (ephemeral)
-  - Any path matching gitignored patterns in the target repo (if it's a git repo)
+  - Claude runtime state such as scratch/, worktrees/, checkpoints/, and mailbox/
 """
 
 from __future__ import annotations
 
 import filecmp
+import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -24,10 +25,23 @@ from .paths import PROJECTS_BASE, PROJECTS_OVERRIDES
 
 console = Console()
 
+# Paths passed to _is_protected are relative to the target .claude directory.
+# Keep this list in that namespace.  The former entries included a leading
+# ``.claude/`` and therefore protected nothing.
 PROTECTED_PATHS = {
-    ".claude/settings.local.json",
-    ".claude/scratch",
+    "settings.json",
+    "settings.local.json",
+    "scratch",
+    "worktrees",
+    "checkpoints",
+    "mailbox",
+    "routines/.state",
+    "agent-registry.json",
+    "agent-memory-local",
+    "first-run",
+    "assistant-daemon-state.json",
 }
+PRIVATE_CONTEXT_MARKER = ".private-context"
 
 
 @dataclass
@@ -46,6 +60,18 @@ def _project_override_dir(project_name: str) -> Path:
 
 def _base_dir() -> Path:
     return PROJECTS_BASE / ".claude"
+
+
+def _refuse_private_context_project(project_path: Path) -> None:
+    marker = PROJECTS_OVERRIDES / project_path.name / PRIVATE_CONTEXT_MARKER
+    if not marker.is_file():
+        return
+    console.print(
+        f"[red]error[/] {project_path.name!r} uses the private context store; "
+        "legacy public-template apply/diff is disabled. Use "
+        f"`tool project context-diff {project_path}` or `context-apply` instead."
+    )
+    raise SystemExit(2)
 
 
 def _iter_template_files(project_name: str) -> list[tuple[Path, str]]:
@@ -73,10 +99,32 @@ def _iter_template_files(project_name: str) -> list[tuple[Path, str]]:
 
 
 def _is_protected(rel_path: str) -> bool:
-    for p in PROTECTED_PATHS:
-        if rel_path == p or rel_path.startswith(p + "/"):
-            return True
-    return False
+    if "__pycache__" in Path(rel_path).parts or rel_path.startswith(
+        "settings.json.bak-"
+    ):
+        return True
+    return any(
+        rel_path == path or rel_path.startswith(path + "/") for path in PROTECTED_PATHS
+    )
+
+
+def _iter_target_files(target_claude: Path):
+    """Yield target files without descending into protected runtime trees."""
+
+    for root, dirs, files in os.walk(target_claude):
+        root_path = Path(root)
+        root_rel = root_path.relative_to(target_claude)
+        kept_dirs: list[str] = []
+        for dirname in dirs:
+            rel = (root_rel / dirname).as_posix()
+            if not _is_protected(rel):
+                kept_dirs.append(dirname)
+        dirs[:] = kept_dirs
+        for filename in files:
+            path = root_path / filename
+            rel = path.relative_to(target_claude).as_posix()
+            if not _is_protected(rel):
+                yield path, rel
 
 
 def _plan(project_path: Path) -> list[FileOp]:
@@ -105,11 +153,8 @@ def _plan(project_path: Path) -> list[FileOp]:
 
     # Files in target that aren't in the template — leave alone, but report
     if target_claude.exists():
-        for p in target_claude.rglob("*"):
-            if not p.is_file():
-                continue
-            rel = p.relative_to(target_claude).as_posix()
-            if _is_protected(rel) or rel in template_rels:
+        for p, rel in _iter_target_files(target_claude):
+            if rel in template_rels:
                 continue
             ops.append(FileOp("target_only", rel, None, p))
 
@@ -152,6 +197,7 @@ def apply(project_path: Path, write: bool = False) -> None:
     if not project_path.is_dir():
         console.print(f"[red]error[/] not a directory: {project_path}")
         raise SystemExit(2)
+    _refuse_private_context_project(project_path)
 
     project_name = project_path.name
     override_dir = _project_override_dir(project_name)
@@ -190,6 +236,7 @@ def diff(project_path: Path) -> None:
     if not project_path.is_dir():
         console.print(f"[red]error[/] not a directory: {project_path}")
         raise SystemExit(2)
+    _refuse_private_context_project(project_path)
 
     ops = _plan(project_path)
     _print_plan(ops, title=f"diff — {project_path} vs template")

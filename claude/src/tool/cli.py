@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Annotated
 
 import typer
 from rich.console import Console
@@ -16,8 +17,13 @@ app = typer.Typer(
     add_completion=False,
 )
 
-mcp_app = typer.Typer(help="MCP server lifecycle and introspection.", no_args_is_help=True)
-project_app = typer.Typer(help="Apply base + override templates to project .claude/ dirs.", no_args_is_help=True)
+mcp_app = typer.Typer(
+    help="MCP server lifecycle and introspection.", no_args_is_help=True
+)
+project_app = typer.Typer(
+    help="Manage public templates and private per-project agent context.",
+    no_args_is_help=True,
+)
 
 app.add_typer(mcp_app, name="mcp")
 app.add_typer(project_app, name="project")
@@ -34,7 +40,12 @@ def _version_callback(value: bool) -> None:
 @app.callback()
 def main(
     version: bool = typer.Option(
-        False, "--version", "-V", callback=_version_callback, is_eager=True, help="Show version."
+        False,
+        "--version",
+        "-V",
+        callback=_version_callback,
+        is_eager=True,
+        help="Show version.",
     ),
 ) -> None:
     """Root callback — handles --version."""
@@ -62,6 +73,7 @@ def sync(
 def doctor() -> None:
     """Lint for drift, stale paths, exposed secrets. Read-only."""
     from .doctor import run_doctor
+
     run_doctor()
 
 
@@ -72,6 +84,7 @@ def doctor() -> None:
 def mcp_list() -> None:
     """List registered MCP servers with reachability check."""
     from .mcp_ops import list_servers
+
     list_servers()
 
 
@@ -81,6 +94,7 @@ def mcp_reindex(
 ) -> None:
     """Run Séance reindex_changed on indexed projects."""
     from .mcp_ops import reindex
+
     reindex(project)
 
 
@@ -99,18 +113,101 @@ def mcp_reload_config() -> None:
 
 @project_app.command("apply")
 def project_apply(
-    path: Path = typer.Argument(..., help="Project root."),
-    write: bool = typer.Option(False, "--write", help="Actually write (default is dry-run)."),
+    path: Annotated[Path, typer.Argument(help="Project root.")],
+    write: Annotated[
+        bool, typer.Option("--write", help="Actually write (default is dry-run).")
+    ] = False,
 ) -> None:
     """Apply _base + overrides to <path>/.claude/. Dry-run unless --write."""
     from .project_ops import apply as _apply
+
     _apply(path, write=write)
 
 
 @project_app.command("diff")
 def project_diff(
-    path: Path = typer.Argument(..., help="Project root."),
+    path: Annotated[Path, typer.Argument(help="Project root.")],
 ) -> None:
     """Show drift between <path>/.claude/ and the template (_base + overrides)."""
     from .project_ops import diff as _diff
+
     _diff(path)
+
+
+@project_app.command("context-diff")
+def project_context_diff(
+    path: Annotated[Path, typer.Argument(help="Project root.")],
+    store: Annotated[
+        Path | None,
+        typer.Option(
+            "--store",
+            help="Private context store (default: $AGENT_CONTEXT_HOME or ~/agent-context).",
+        ),
+    ] = None,
+) -> None:
+    """Show drift between a project and its private context store."""
+    from .context_ops import default_store
+    from .context_ops import diff as _diff
+
+    _diff(path, store or default_store())
+
+
+@project_app.command("context-capture")
+def project_context_capture(
+    path: Annotated[Path, typer.Argument(help="Project root.")],
+    store: Annotated[
+        Path | None,
+        typer.Option(
+            "--store",
+            help="Private context store (default: $AGENT_CONTEXT_HOME or ~/agent-context).",
+        ),
+    ] = None,
+    write: Annotated[
+        bool, typer.Option("--write", help="Actually capture (default is dry-run).")
+    ] = False,
+) -> None:
+    """Capture allowlisted context into a private store. Never deletes canonical files."""
+    from .context_ops import capture, default_store
+
+    capture(path, store or default_store(), write=write)
+
+
+@project_app.command("context-apply")
+def project_context_apply(
+    path: Annotated[Path, typer.Argument(help="Project root.")],
+    store: Annotated[
+        Path | None,
+        typer.Option(
+            "--store",
+            help="Private context store (default: $AGENT_CONTEXT_HOME or ~/agent-context).",
+        ),
+    ] = None,
+    write: Annotated[
+        bool, typer.Option("--write", help="Actually restore (default is dry-run).")
+    ] = False,
+) -> None:
+    """Restore managed context atomically. Archive-only material is never restored."""
+    from .context_ops import apply as _apply
+    from .context_ops import default_store
+
+    _apply(path, store or default_store(), write=write)
+
+
+@project_app.command("context-excludes")
+def project_context_excludes(
+    path: Annotated[Path, typer.Argument(help="Project root.")],
+    store: Annotated[
+        Path | None,
+        typer.Option(
+            "--store",
+            help="Private context store (default: $AGENT_CONTEXT_HOME or ~/agent-context).",
+        ),
+    ] = None,
+    write: Annotated[
+        bool, typer.Option("--write", help="Actually update (default is dry-run).")
+    ] = False,
+) -> None:
+    """Regenerate the manifest-owned block in .git/info/exclude."""
+    from .context_ops import default_store, excludes
+
+    excludes(path, store or default_store(), write=write)

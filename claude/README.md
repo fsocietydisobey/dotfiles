@@ -44,6 +44,10 @@ tool mcp list          # list registered MCP servers + reachability
 tool mcp reindex       # run Séance reindex_changed on all indexed projects
 tool project apply <path>    # apply _base + overrides to a project's .claude/
 tool project diff  <path>    # show drift between project's .claude/ and template
+tool project context-diff <path>       # compare project with private context store
+tool project context-capture <path>    # dry-run project → private store
+tool project context-apply <path>      # dry-run private store → project
+tool project context-excludes <path>   # regenerate manifest-owned .git/info/exclude block
 ```
 
 ## How generated files work
@@ -68,3 +72,16 @@ uv pip install -e .      # installs the `tool` CLI
 tool sync                # populates ~/.claude.json mcpServers + ~/.cursor/{mcp.json,rules/}
 tool doctor              # verify no drift
 ```
+
+## Private per-project agent context
+
+The dotfiles repository is public. Proprietary project context must therefore live
+in a separate private Git repository, defaulting to `~/agent-context` (override with
+`AGENT_CONTEXT_HOME`). Each project has `projects/<name>/manifest.yaml`, a managed
+`files/` tree, and an optional capture-only `archive/` tree.
+
+`context-capture`, `context-apply`, and `context-excludes` are dry-run by default;
+pass `--write` after reviewing their plan. Capture and restore are allowlist-only,
+atomic per file, refuse missing required sources, reject traversal and symlinks, and
+never capture secrets, machine-local settings, generated Khimaira context, Claude
+worktrees, scratch state, checkpoints, mailboxes, or caches.

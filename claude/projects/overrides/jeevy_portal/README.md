@@ -16,11 +16,17 @@ Canonical `.claude/` contents for `~/work/jeevy_portal`.
 
 ## Sync model
 
-Source of truth is *this directory*. Working copy is `~/work/jeevy_portal/.claude/`.
+This legacy public template is disabled by `.private-context`. It is retained
+temporarily for history while the private-store migration is reviewed, but
+`tool project apply` and `tool project diff` refuse to apply it. The active
+source of truth is the private context store managed with `tool project
+context-*`; the dotfiles repository is public.
 
 ```bash
-tool project diff  ~/work/jeevy_portal    # see drift
-tool project apply ~/work/jeevy_portal --write   # template → project
+tool project context-diff  ~/work/jeevy_portal
+tool project context-apply ~/work/jeevy_portal --write
 ```
 
-`apply` never touches `settings.local.json` or ephemeral scratch files in the target.
+The generic public-template apply path remains available for projects without
+the marker. It never touches Khimaira-generated `settings.json`, machine-local
+`settings.local.json`, or ephemeral Claude runtime state in the target.

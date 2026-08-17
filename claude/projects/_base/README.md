@@ -11,4 +11,7 @@ Right now `_base/` is empty — there's only one project (jeevy_portal) so there
                                 (higher precedence)
 ```
 
-`tool project apply` merges top-down; later layers overwrite earlier ones. `settings.local.json` and `scratch/` files in the target are never touched.
+`tool project apply` merges top-down; later layers overwrite earlier ones. Khimaira-owned
+`settings.json`, machine-local `settings.local.json`, and Claude runtime state
+(`scratch/`, `worktrees/`, `checkpoints/`, `mailbox/`, and related registries) are
+never touched.
